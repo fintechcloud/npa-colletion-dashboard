@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+backend/venv/
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Production Builds
+dist/
+dist-ssr/
+build/
+
+# Sensitive Credential and Auth Files (DO NOT COMMIT)
+*service_account*.json
+*client_secret*.json
+authorized_user.json
+.env
+.env.*
+!.env.example
+
+# Logs and system files
+*.log
+npm-debug.log*
+yarn-debug.log*
+.DS_Store
+Thumbs.db

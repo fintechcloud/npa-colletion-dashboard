@@ -1,0 +1,151 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-display: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'SF Mono', ui-monospace, Menlo, monospace;
+
+  --color-brand-400: #ff5533;
+  --color-brand-500: #ff3b30;
+  --color-brand-600: #e6352b;
+  --color-brand-700: #cc2a21;
+
+  --color-canvas: #090a0f;
+  --color-surface: #12131a;
+  --color-surface-card: #14151e;
+  --color-surface-hover: #1c1d27;
+  
+  --color-ink-900: #090a0f;
+  --color-ink-800: #12131a;
+}
+
+html, body, #root { 
+  height: 100%; 
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  letter-spacing: -0.01em;
+  background: transparent;
+  color: #f3f4f6;
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-mono-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+::-webkit-scrollbar { 
+  width: 6px; 
+  height: 6px; 
+}
+::-webkit-scrollbar-track { 
+  background: transparent; 
+}
+::-webkit-scrollbar-thumb { 
+  background: rgba(255, 255, 255, 0.14); 
+  border-radius: 9999px; 
+}
+::-webkit-scrollbar-thumb:hover { 
+  background: rgba(255, 255, 255, 0.24); 
+}
+
+/* Custom cyber-fintech scrollbar matching Vaulto theme */
+.scroll-theme::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.scroll-theme::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 9999px;
+}
+.scroll-theme::-webkit-scrollbar-thumb {
+  background: rgba(255, 59, 48, 0.3);
+  border-radius: 9999px;
+}
+.scroll-theme::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 59, 48, 0.65);
+}
+
+/* Marquee ticker */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.animate-marquee { 
+  animation: marquee 24s linear infinite; 
+}
+.marquee-track:hover .animate-marquee { 
+  animation-play-state: paused; 
+}
+
+/* Card / panel entrance */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in-up {
+  animation: fadeInUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Subtle enterprise shake animation for login error feedback */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+.animate-shake {
+  animation: shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+/* Glassmorphism surfaces matching Vaulto reference */
+.glass-panel {
+  background: rgba(14, 16, 26, 0.48);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.35), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+}
+
+.glass-panel-interactive {
+  background: rgba(14, 16, 26, 0.48);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: 0 8px 24px 0 rgba(0, 0, 0, 0.3), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-panel-interactive:hover {
+  background: rgba(20, 23, 38, 0.65);
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 12px 36px 0 rgba(0, 0, 0, 0.45), inset 0 1px 0 0 rgba(255, 255, 255, 0.14);
+  transform: translateY(-2px);
+}
+
+/* Neon glow classes */
+.glow-red {
+  box-shadow: 0 0 24px -4px rgba(255, 59, 48, 0.45);
+}
+
+.glow-red-sm {
+  box-shadow: 0 0 12px -2px rgba(255, 59, 48, 0.35);
+}
+
+.glow-green-sm {
+  box-shadow: 0 0 12px -2px rgba(16, 185, 129, 0.35);
+}
+
+/* Custom dark date picker indicator */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.8) brightness(1.2);
+  cursor: pointer;
+}
