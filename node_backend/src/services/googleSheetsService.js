@@ -8,7 +8,9 @@ const __dirname = path.dirname(__filename);
 
 // Paths relative to react.office2 root
 const ROOT_DIR = path.resolve(__dirname, '../../../');
-const CONFIG_PATH = path.resolve(__dirname, '../../../backend/data/google_sheet_config.json');
+const LOCAL_CONFIG_PATH = path.resolve(__dirname, '../../data/google_sheet_config.json');
+const ROOT_CONFIG_PATH = path.resolve(__dirname, '../../../backend/data/google_sheet_config.json');
+const CONFIG_PATH = fs.existsSync(LOCAL_CONFIG_PATH) ? LOCAL_CONFIG_PATH : (fs.existsSync(ROOT_CONFIG_PATH) ? ROOT_CONFIG_PATH : LOCAL_CONFIG_PATH);
 const SERVICE_ACCOUNT_PATH = path.resolve(__dirname, '../../../backend/service_account.json');
 
 const SCOPES = [

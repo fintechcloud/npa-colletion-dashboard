@@ -8,7 +8,9 @@ import { fetchRawSheetRows } from './googleSheetsService.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const CSV_PATH = path.resolve(__dirname, '../../../backend/data/SP_last_3_month_pre_coll_performance-Data.csv');
+const LOCAL_CSV_PATH = path.resolve(__dirname, '../../data/SP_last_3_month_pre_coll_performance-Data.csv');
+const ROOT_CSV_PATH = path.resolve(__dirname, '../../../backend/data/SP_last_3_month_pre_coll_performance-Data.csv');
+const CSV_PATH = fs.existsSync(LOCAL_CSV_PATH) ? LOCAL_CSV_PATH : ROOT_CSV_PATH;
 
 export const STATUS_LIST = ['CLOSED', 'PRE-CLOSED', 'SETTLED', 'PART-PAYMENT', 'DISBURSED', 'OTHER'];
 export const TYPE_LIST = ['NEW', 'REPEAT', 'OTHER'];
