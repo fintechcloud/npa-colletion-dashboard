@@ -1,0 +1,8 @@
+{
+  "name": "fast-collection-dashboard-root",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "build": "cd react_office2 && npm install && npm run build"
+  }
+}
