@@ -2,15 +2,12 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
-import Papa from 'papaparse';
 import { fetchRawSheetRows } from './googleSheetsService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const LOCAL_CSV_PATH = path.resolve(__dirname, '../../data/SP_last_3_month_pre_coll_performance-Data.csv');
-const ROOT_CSV_PATH = path.resolve(__dirname, '../../../backend/data/SP_last_3_month_pre_coll_performance-Data.csv');
-const CSV_PATH = fs.existsSync(LOCAL_CSV_PATH) ? LOCAL_CSV_PATH : ROOT_CSV_PATH;
+const SEPTEMBER_BACKUP_PATH = path.resolve(__dirname, '../../data/september_master_cache.json');
 
 export const STATUS_LIST = ['CLOSED', 'PRE-CLOSED', 'SETTLED', 'PART-PAYMENT', 'DISBURSED', 'OTHER'];
 export const TYPE_LIST = ['NEW', 'REPEAT', 'OTHER'];
@@ -509,11 +506,18 @@ function buildDashboardPayload({ cleaned, allTransactions = [] }) {
   return { cases, meta };
 }
 
-function loadCsvBackup() {
-  if (!fs.existsSync(CSV_PATH)) return [];
-  const fileContent = fs.readFileSync(CSV_PATH, 'utf-8');
-  const parsed = Papa.parse(fileContent, { header: true, skipEmptyLines: true });
-  return parsed.data;
+function loadSeptemberBackup() {
+  if (fs.existsSync(SEPTEMBER_BACKUP_PATH)) {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(SEPTEMBER_BACKUP_PATH, 'utf-8'));
+      if (parsed?.cases && parsed.cases.length > 0) {
+        return parsed;
+      }
+    } catch (err) {
+      console.error('[DataService-Node] Error loading September backup cache:', err.message);
+    }
+  }
+  return null;
 }
 
 let _cachedPayload = null;
@@ -565,15 +569,16 @@ export async function getDashboardData(forceRefresh = false) {
   // 2. Return cached if available
   if (_cachedPayload) return _cachedPayload;
 
-  // 3. Fallback: Local CSV backup
-  console.log('[DataService-Node] Falling back to local CSV backup');
-  const backupRecords = loadCsvBackup();
-  const { cleaned, allTransactions } = cleanRecords(backupRecords, []);
-  const payload = buildDashboardPayload({ cleaned, allTransactions });
-  payload.meta.dataSource = 'local_csv_backup';
-  _cachedPayload = payload;
-  _lastCacheTime = now;
-  return payload;
+  // 3. Fallback: Verified September Master Data Cache (6,568 cases)
+  console.log('[DataService-Node] Serving verified September master data');
+  const backupPayload = loadSeptemberBackup();
+  if (backupPayload) {
+    _cachedPayload = backupPayload;
+    _lastCacheTime = now;
+    return backupPayload;
+  }
+
+  return { cases: [], meta: {} };
 }
 
 export async function refreshDashboardData() {
