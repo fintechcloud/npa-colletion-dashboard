@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Search, ArrowUpDown } from 'lucide-react';
-import { computeLeaderRows, fmtINR, titleCase, pctBand, META, fmtMonth } from '../utils/data';
+import { computeLeaderRows, fmtINR, fmtINRFull, titleCase, pctBand, META, fmtMonth } from '../utils/data';
 import { useLiveCollection } from '../context/LiveCollectionContext';
 
 const bandClass = {
@@ -15,6 +15,7 @@ export default function TeamLeadersPage({ onOpenLeader }) {
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState('recvd');
   const [sortDir, setSortDir] = useState(-1);
+  const [showExact, setShowExact] = useState(false);
 
   // Month date range boundaries from dataset
   const latestMonthStr = useMemo(() => (META.dateMax ? META.dateMax.slice(0, 7) : '2026-07'), []);
@@ -148,9 +149,38 @@ export default function TeamLeadersPage({ onOpenLeader }) {
 
       {/* Table Panel */}
       <div className="bg-[#0f111d]/45 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-xl">
-        <div className="mb-5">
-          <div className="text-[16px] font-bold text-white font-display tracking-tight">Team Leader Rollup</div>
-          <div className="text-[12px] font-medium text-zinc-400 mt-0.5">Click any leader row to inspect individual agent assignments and performance</div>
+        <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
+          <div>
+            <div className="text-[16px] font-bold text-white font-display tracking-tight">Team Leader Rollup</div>
+            <div className="text-[12px] font-medium text-zinc-400 mt-0.5">Click any leader row to inspect individual agent assignments and performance</div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider font-display">Format:</span>
+            <div className="flex bg-black/40 border border-white/[0.08] rounded-xl p-0.5 gap-0.5 shadow-inner">
+              <button
+                type="button"
+                onClick={() => setShowExact(false)}
+                className={`text-[11.5px] font-bold px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                  !showExact
+                    ? 'bg-white/[0.12] text-white shadow-sm border border-white/[0.08]'
+                    : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                Compact (L/Cr)
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowExact(true)}
+                className={`text-[11.5px] font-bold px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                  showExact
+                    ? 'bg-gradient-to-r from-[#ff5e3a] to-[#ff3b30] text-white shadow-[0_0_12px_rgba(255,59,48,0.35)]'
+                    : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                ₹ Exact Rupees (Sheet Match)
+              </button>
+            </div>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -197,12 +227,16 @@ export default function TeamLeadersPage({ onOpenLeader }) {
                     </td>
                     <td className="py-3.5 px-3 font-mono text-zinc-300">{l.agentCount}</td>
                     <td className="py-3.5 px-3 font-mono text-zinc-300">{l.cases.toLocaleString('en-IN')}</td>
-                    <td className="py-3.5 px-3 font-mono text-zinc-400">{fmtINR(l.due)}</td>
-                    <td className="py-3.5 px-3 font-mono font-bold text-white">{fmtINR(l.recvd)}</td>
+                    <td className="py-3.5 px-3 font-mono text-zinc-400" title={fmtINRFull(l.due)}>
+                      {showExact ? fmtINRFull(l.due) : fmtINR(l.due)}
+                    </td>
+                    <td className="py-3.5 px-3 font-mono font-bold text-white" title={fmtINRFull(l.recvd)}>
+                      {showExact ? fmtINRFull(l.recvd) : fmtINR(l.recvd)}
+                    </td>
                     <td className="py-3.5 px-3">
-                      <div className="flex items-center gap-1.5 font-mono font-bold text-emerald-400">
+                      <div className="flex items-center gap-1.5 font-mono font-bold text-emerald-400" title={fmtINRFull(l.liveRecvd || 0)}>
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-                        <span>{fmtINR(l.liveRecvd || 0)}</span>
+                        <span>{showExact ? fmtINRFull(l.liveRecvd || 0) : fmtINR(l.liveRecvd || 0)}</span>
                       </div>
                       {l.liveCases > 0 && (
                         <div className="text-[10px] font-mono text-zinc-500 pl-3">
@@ -210,10 +244,12 @@ export default function TeamLeadersPage({ onOpenLeader }) {
                         </div>
                       )}
                     </td>
-                    <td className="py-3.5 px-3 font-mono text-zinc-400">{fmtINR(l.yday)}</td>
+                    <td className="py-3.5 px-3 font-mono text-zinc-400" title={fmtINRFull(l.yday)}>
+                      {showExact ? fmtINRFull(l.yday) : fmtINR(l.yday)}
+                    </td>
                     <td className="py-3.5 px-3">
                       <span className={`font-mono font-bold text-[11.5px] px-2.5 py-1 rounded-full ${bandClass[pctBand(l.pct)]}`}>
-                        {l.pct.toFixed(1)}%
+                        {l.pct.toFixed(2)}%
                       </span>
                     </td>
                   </tr>

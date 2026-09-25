@@ -1,8 +1,20 @@
 import { useState, useEffect } from 'react';
 import {
   AuthContext, ADMIN_USER, DEFAULT_CREDENTIALS, STORAGE_KEY,
-  AUTHORIZED_DATABASE_USERS, getRegisteredUsers,
+  AUTHORIZED_DATABASE_USERS, getRegisteredUsers, saveRegisteredUser,
+  resolveUserProfile,
 } from '../utils/auth';
+import {
+  isFirebaseConfigured,
+  loginWithFirebaseGoogle,
+  loginWithFirebaseEmail,
+  logoutFromFirebase,
+  resetFirebasePassword,
+  subscribeToAuthChanges,
+  formatFirebaseAuthError,
+  getFirebaseConfig,
+  saveFirebaseConfig,
+} from '../utils/firebase';
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
@@ -16,8 +28,14 @@ export function AuthProvider({ children }) {
 
   const [authError, setAuthError] = useState('');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [firebaseActive, setFirebaseActive] = useState(() => isFirebaseConfigured());
 
-  // Sync state to localStorage
+  // Keep firebaseActive updated
+  const refreshFirebaseStatus = () => {
+    setFirebaseActive(isFirebaseConfigured());
+  };
+
+  // Sync session state to localStorage
   useEffect(() => {
     try {
       if (user) {
@@ -30,60 +48,213 @@ export function AuthProvider({ children }) {
     }
   }, [user]);
 
+  // Check if an email is authorized in pre-defined database or company domain
+  const isPredefinedOrAuthorized = (email) => {
+    if (!email) return false;
+    const clean = email.toLowerCase().trim();
+    if (clean.endsWith('@fastpaisa.com')) return true;
+    const authorizedList = getRegisteredUsers();
+    return authorizedList.some((u) => (u.email || '').toLowerCase().trim() === clean);
+  };
+
+  // Subscribe to real Firebase Auth changes
+  useEffect(() => {
+    if (!isFirebaseConfigured()) return;
+
+    try {
+      const unsubscribe = subscribeToAuthChanges(async (fbUser) => {
+        if (fbUser) {
+          // Verify user is authorized
+          const email = fbUser.email || '';
+          if (isPredefinedOrAuthorized(email)) {
+            const profile = resolveUserProfile(fbUser);
+            setUser((prev) => {
+              if (prev?.email === profile.email) return prev;
+              return profile;
+            });
+          } else {
+            // Unregistered user attempted login
+            await logoutFromFirebase();
+            setUser(null);
+            setAuthError(`Access Denied: Account (${email}) is not in the pre-defined authorized list.`);
+          }
+        }
+      });
+      return () => {
+        if (typeof unsubscribe === 'function') unsubscribe();
+      };
+    } catch (err) {
+      console.warn('Firebase auth subscription error:', err);
+    }
+  }, [firebaseActive]);
+
   /**
-   * Strictly verify credentials against pre-trained / pre-defined database
+   * Unified Login: Only with Pre-Defined Credentials
    */
   const login = async (idOrEmail, password, remember = true) => {
     setIsAuthenticating(true);
     setAuthError('');
 
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    const cleanId = String(idOrEmail || '').trim().toLowerCase();
+    const cleanId = String(idOrEmail || '').trim();
     const cleanPass = String(password || '').trim();
 
-    // STRICT CHECK: ONLY MATCH AGAINST PRE-DEFINED DATABASE
+    // 1. If Firebase is active and input looks like an email, try Firebase first
+    if (isFirebaseConfigured() && cleanId.includes('@')) {
+      try {
+        const fbUser = await loginWithFirebaseEmail(cleanId, cleanPass);
+        
+        // Strict pre-defined verification
+        if (!isPredefinedOrAuthorized(fbUser.email)) {
+          await logoutFromFirebase();
+          const err = `Access Denied: Account (${fbUser.email}) is not in the pre-defined authorized list.`;
+          setAuthError(err);
+          setIsAuthenticating(false);
+          return { success: false, error: err };
+        }
+
+        const resolved = resolveUserProfile(fbUser);
+        setUser(resolved);
+        setIsAuthenticating(false);
+        return { success: true, user: resolved, authProvider: 'firebase' };
+      } catch (fbErr) {
+        // Fallback check against offline pre-defined administrative accounts
+        const localMatch = AUTHORIZED_DATABASE_USERS.find(
+          (acc) => acc.email.toLowerCase() === cleanId.toLowerCase() && acc.password === cleanPass
+        );
+
+        if (localMatch) {
+          const authenticatedUser = {
+            ...localMatch,
+            lastLogin: new Date().toISOString(),
+            remember,
+            authProvider: 'local_bypass',
+          };
+          setUser(authenticatedUser);
+          setIsAuthenticating(false);
+          return { success: true, user: authenticatedUser, authProvider: 'local' };
+        }
+
+        const friendly = formatFirebaseAuthError(fbErr);
+        setAuthError(friendly);
+        setIsAuthenticating(false);
+        return { success: false, error: friendly };
+      }
+    }
+
+    // 2. Local / Pre-defined Authorized Database verification
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    const cleanLowerId = cleanId.toLowerCase();
+
     const matchedAccount = AUTHORIZED_DATABASE_USERS.find(
       (acc) =>
-        acc.email.toLowerCase() === cleanId ||
-        acc.username.toLowerCase() === cleanId ||
-        acc.id.toLowerCase() === cleanId
+        acc.email.toLowerCase() === cleanLowerId ||
+        acc.username.toLowerCase() === cleanLowerId ||
+        acc.id.toLowerCase() === cleanLowerId
     );
 
     if (!matchedAccount) {
       setIsAuthenticating(false);
-      const error = 'Access Denied: ID / Email is not registered in the authorized database.';
+      const error = 'Access Denied: Unregistered ID or Email. Only pre-defined accounts can log in.';
       setAuthError(error);
       return { success: false, error };
     }
 
     if (matchedAccount.password !== cleanPass) {
       setIsAuthenticating(false);
-      const error = 'Access Denied: Incorrect password for this authorized account.';
+      const error = 'Access Denied: Incorrect password for this pre-defined account.';
       setAuthError(error);
       return { success: false, error };
     }
 
-    // Success: Login granted
+    // Local account granted
     const authenticatedUser = {
       ...matchedAccount,
       lastLogin: new Date().toISOString(),
       remember,
+      authProvider: 'local',
     };
 
     setUser(authenticatedUser);
     setIsAuthenticating(false);
-    return { success: true, user: authenticatedUser };
+    return { success: true, user: authenticatedUser, authProvider: 'local' };
   };
 
   /**
-   * Phone Number and OTP Login (FinTech Standard)
+   * Google Sign-In: Only Pre-Defined Accounts Allowed
+   */
+  const loginWithGoogle = async (fallbackProfile = null) => {
+    setIsAuthenticating(true);
+    setAuthError('');
+
+    // If Firebase is active, launch Firebase Google popup
+    if (isFirebaseConfigured() && !fallbackProfile) {
+      try {
+        const fbUser = await loginWithFirebaseGoogle();
+        
+        // Strict pre-defined verification
+        if (!isPredefinedOrAuthorized(fbUser.email)) {
+          await logoutFromFirebase();
+          const err = `Access Denied: The Google account (${fbUser.email}) is not authorized.`;
+          setAuthError(err);
+          setIsAuthenticating(false);
+          return { success: false, error: err };
+        }
+
+        const profile = resolveUserProfile(fbUser);
+        setUser(profile);
+        setIsAuthenticating(false);
+        return { success: true, user: profile, authProvider: 'firebase_google' };
+      } catch (err) {
+        if (err.code === 'auth/popup-closed-by-user') {
+          setIsAuthenticating(false);
+          return { success: false, error: 'Sign-in cancelled (popup closed).' };
+        }
+        const friendly = formatFirebaseAuthError(err);
+        setAuthError(friendly);
+        setIsAuthenticating(false);
+        return { success: false, error: friendly };
+      }
+    }
+
+    // Fallback: Selected profile from pre-defined list
+    if (!fallbackProfile || !fallbackProfile.email) {
+      setIsAuthenticating(false);
+      const error = 'Please select a pre-defined authorized profile.';
+      setAuthError(error);
+      return { success: false, error };
+    }
+
+    const cleanEmail = fallbackProfile.email.trim().toLowerCase();
+    if (!isPredefinedOrAuthorized(cleanEmail)) {
+      setIsAuthenticating(false);
+      const error = `Access Denied: (${cleanEmail}) is not a pre-defined authorized account.`;
+      setAuthError(error);
+      return { success: false, error };
+    }
+
+    const matched = AUTHORIZED_DATABASE_USERS.find(
+      (u) => u.email.toLowerCase() === cleanEmail
+    ) || fallbackProfile;
+
+    const userPayload = {
+      ...matched,
+      lastLogin: new Date().toISOString(),
+      authProvider: 'google',
+    };
+
+    setUser(userPayload);
+    setIsAuthenticating(false);
+    return { success: true, user: userPayload };
+  };
+
+  /**
+   * Phone Number and OTP Login (Pre-Defined Central Head only)
    */
   const loginWithOTP = async (phone, otp, remember = true) => {
     setIsAuthenticating(true);
     setAuthError('');
 
-    await new Promise((resolve) => setTimeout(resolve, 600));
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
     const cleanPhone = phone.replace(/\D/g, '');
     const cleanOTP = otp.trim();
@@ -97,6 +268,7 @@ export function AuthProvider({ children }) {
         phone: `+91 ${cleanPhone.slice(-10)}`,
         lastLogin: new Date().toISOString(),
         remember,
+        authProvider: 'phone_otp',
       };
       setUser(authenticatedUser);
       setIsAuthenticating(false);
@@ -117,85 +289,39 @@ export function AuthProvider({ children }) {
   const quickAdminLogin = async () => {
     setIsAuthenticating(true);
     setAuthError('');
-    await new Promise((resolve) => setTimeout(resolve, 350));
+    await new Promise((resolve) => setTimeout(resolve, 300));
     setUser(ADMIN_USER);
     setIsAuthenticating(false);
     return { success: true, user: ADMIN_USER };
   };
 
   /**
-   * Real Google Sign-In / Sign-Up ("Log Up")
+   * Password Reset
    */
-  const loginWithGoogle = async (googleProfile) => {
-    setIsAuthenticating(true);
-    setAuthError('');
-
-    if (!googleProfile || !googleProfile.email) {
-      setIsAuthenticating(false);
-      const error = 'No Google account data received. Please select an active Google account.';
-      setAuthError(error);
-      return { success: false, error };
+  const sendPasswordReset = async (email) => {
+    if (!isFirebaseConfigured()) {
+      return { success: false, error: 'Password reset requires Firebase to be configured.' };
     }
-
-    const cleanEmail = googleProfile.email.trim().toLowerCase();
-    const cleanName = googleProfile.name?.trim() || cleanEmail.split('@')[0];
-    const picture = googleProfile.picture || '';
-
-    // Register or update user in persistent user database
-    const userPayload = {
-      id: googleProfile.sub || `usr_google_${Date.now()}`,
-      name: cleanName,
-      email: cleanEmail,
-      picture: picture,
-      avatar: cleanName.slice(0, 2).toUpperCase(),
-      role: 'Super Admin',
-      roleLabel: '👑 Google SSO Executive',
-      department: 'Collections Leadership Desk',
-      organization: 'Fast Paisa Technologies',
-      authProvider: 'google',
-    };
-
-    const { isFirstTime, user: savedUser } = saveRegisteredUser(userPayload);
-
-    setUser(savedUser);
-    setIsAuthenticating(false);
-    return { success: true, user: savedUser, isFirstTime };
-  };
-
-  /**
-   * Executive Sign-Up ("Log Up")
-   */
-  const signup = async (fullName, email) => {
-    setIsAuthenticating(true);
-    setAuthError('');
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    const cleanEmail = email.trim().toLowerCase();
-    const cleanName = fullName.trim() || cleanEmail.split('@')[0];
-
-    const newUserPayload = {
-      id: `usr_${Date.now()}`,
-      name: cleanName,
-      email: cleanEmail,
-      avatar: cleanName.slice(0, 2).toUpperCase(),
-      role: 'Super Admin',
-      roleLabel: '👑 Executive User',
-      department: 'Executive Leadership Desk',
-      organization: 'Fast Paisa Technologies',
-      authProvider: 'email',
-    };
-
-    const { isFirstTime, user: savedUser } = saveRegisteredUser(newUserPayload);
-
-    setUser(savedUser);
-    setIsAuthenticating(false);
-    return { success: true, user: savedUser, isFirstTime };
+    try {
+      await resetFirebasePassword(email);
+      return { success: true };
+    } catch (err) {
+      const friendly = formatFirebaseAuthError(err);
+      return { success: false, error: friendly };
+    }
   };
 
   /**
    * Logout
    */
-  const logout = () => {
+  const logout = async () => {
+    try {
+      if (isFirebaseConfigured()) {
+        await logoutFromFirebase();
+      }
+    } catch (err) {
+      console.warn('Firebase logout warning:', err);
+    }
     setUser(null);
     setAuthError('');
     try {
@@ -213,11 +339,18 @@ export function AuthProvider({ children }) {
         isAuthenticating,
         authError,
         setAuthError,
+        isFirebaseActive: isFirebaseConfigured(),
+        firebaseConfig: getFirebaseConfig(),
+        saveFirebaseConfig: (cfg) => {
+          const res = saveFirebaseConfig(cfg);
+          refreshFirebaseStatus();
+          return res;
+        },
         login,
-        signup,
         loginWithOTP,
         loginWithGoogle,
         quickAdminLogin,
+        sendPasswordReset,
         logout,
         registeredUsers: getRegisteredUsers(),
       }}

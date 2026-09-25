@@ -93,6 +93,31 @@ export function cleanRecvd(x) {
   return Number.isNaN(n) ? null : n;
 }
 
+const MONTH_MAP = {
+  jan: 0, january: 0,
+  feb: 1, february: 1,
+  mar: 2, march: 2,
+  apr: 3, april: 3,
+  may: 4,
+  jun: 5, june: 5,
+  jul: 6, july: 6,
+  aug: 7, august: 7,
+  sep: 8, sept: 8, september: 8,
+  oct: 9, october: 9,
+  nov: 10, november: 10,
+  dec: 11, december: 11,
+};
+
+export function getTodayStrIST() {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  return formatter.format(new Date());
+}
+
 export function parseDayFirstDate(dateStr) {
   if (!dateStr) return null;
   const s = String(dateStr).trim();
@@ -102,6 +127,30 @@ export function parseDayFirstDate(dateStr) {
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
     const parts = s.split(/[-T ]/);
     return new Date(Date.UTC(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10)));
+  }
+
+  // Handle DD Mon YYYY or DD-Mon-YYYY (e.g. "24 Sep 2026", "24-Sep-2026", "24 September 2026")
+  const monMatch = s.match(/^(\d{1,2})[-\s/]+([A-Za-z]+)[-\s/]+(\d{4})/);
+  if (monMatch) {
+    const day = parseInt(monMatch[1], 10);
+    const monStr = monMatch[2].toLowerCase();
+    const month = MONTH_MAP[monStr] !== undefined ? MONTH_MAP[monStr] : MONTH_MAP[monStr.slice(0, 3)];
+    const year = parseInt(monMatch[3], 10);
+    if (month !== undefined && !Number.isNaN(day) && !Number.isNaN(year)) {
+      return new Date(Date.UTC(year, month, day));
+    }
+  }
+
+  // Handle Mon DD, YYYY or Mon DD YYYY (e.g. "Sep 24, 2026")
+  const monMatch2 = s.match(/^([A-Za-z]+)[-\s/]+(\d{1,2}),?[-\s/]+(\d{4})/);
+  if (monMatch2) {
+    const monStr = monMatch2[1].toLowerCase();
+    const day = parseInt(monMatch2[2], 10);
+    const year = parseInt(monMatch2[3], 10);
+    const month = MONTH_MAP[monStr] !== undefined ? MONTH_MAP[monStr] : MONTH_MAP[monStr.slice(0, 3)];
+    if (month !== undefined && !Number.isNaN(day) && !Number.isNaN(year)) {
+      return new Date(Date.UTC(year, month, day));
+    }
   }
 
   // Handle DD-MM-YYYY or DD/MM/YYYY
@@ -122,8 +171,13 @@ export function parseDayFirstDate(dateStr) {
     }
   }
 
+  // Fallback: parse via new Date(s), but construct UTC Date using local calendar components
+  // so that toDateStr() (which slices toISOString) never shifts backward due to local timezone offset (e.g. IST +05:30)
   const parsed = new Date(s);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
+  if (!Number.isNaN(parsed.getTime())) {
+    return new Date(Date.UTC(parsed.getFullYear(), parsed.getMonth(), parsed.getDate()));
+  }
+  return null;
 }
 
 export function toDateStr(d) {
@@ -232,7 +286,8 @@ function cleanRecords(masterRecords, collectionRecords = []) {
     let currentStatus = statusMap[rawStatus] || rawStatus;
     if (!knownStatuses.has(currentStatus)) currentStatus = 'OTHER';
 
-    let loanRepay = cleanRecvd(r['Loan Repay Amount']);
+    const actRp = cleanRecvd(r['ACT_RP']);
+    let loanRepay = (actRp !== null && actRp > 0) ? actRp : cleanRecvd(r['Loan Repay Amount']);
     if (loanRepay === null) {
       loanRepay = cleanRecvd(r['Loan Amount']) || 0;
     }
@@ -257,10 +312,6 @@ function cleanRecords(masterRecords, collectionRecords = []) {
         totalRecvd = cleanRecvd(r['Total Recvd']) || 0;
       }
       lpDate = parseDayFirstDate(r['LP DATE']);
-    }
-
-    if (totalRecvd === 0 && (currentStatus === 'CLOSED' || currentStatus === 'PRE-CLOSED')) {
-      totalRecvd = loanRepay;
     }
 
     let dueDate = parseDayFirstDate(r['Repayment Date']);
@@ -365,17 +416,47 @@ function buildDashboardPayload({ cleaned, allTransactions = [] }) {
     cases.push([a, l, t, s, dayOffset, dueAmt, recvdAmt, st]);
   });
 
+  // Map loan to agent and leader
+  const loanToAgent = new Map();
+  const loanToLeader = new Map();
+  cleaned.forEach((c) => {
+    loanToAgent.set(c.loanNo, c.agentName);
+    loanToLeader.set(c.loanNo, c.leader);
+  });
+
+  const agentActualCollectionByDate = {};
+  const leaderActualCollectionByDate = {};
+
   // Group actual collections by RCV DATE from the master COLLECTION register (including multi-payments!)
   if (allTransactions && allTransactions.length > 0) {
     allTransactions.forEach((t) => {
       if (t.rcvDate && t.amt > 0) {
         const dstr = toDateStr(t.rcvDate);
         if (dstr) {
+          // Company-wide actual collection
           if (!actualCollectionByDate[dstr]) {
             actualCollectionByDate[dstr] = { amount: 0, cases: 0 };
           }
           actualCollectionByDate[dstr].amount += Math.round(t.amt);
           actualCollectionByDate[dstr].cases += 1;
+
+          // Agent-specific actual collection by RCV DATE
+          const ag = loanToAgent.get(t.loanNo);
+          if (ag) {
+            if (!agentActualCollectionByDate[ag]) agentActualCollectionByDate[ag] = {};
+            if (!agentActualCollectionByDate[ag][dstr]) agentActualCollectionByDate[ag][dstr] = { amount: 0, cases: 0 };
+            agentActualCollectionByDate[ag][dstr].amount += Math.round(t.amt);
+            agentActualCollectionByDate[ag][dstr].cases += 1;
+          }
+
+          // Leader-specific actual collection by RCV DATE
+          const ld = loanToLeader.get(t.loanNo);
+          if (ld) {
+            if (!leaderActualCollectionByDate[ld]) leaderActualCollectionByDate[ld] = {};
+            if (!leaderActualCollectionByDate[ld][dstr]) leaderActualCollectionByDate[ld][dstr] = { amount: 0, cases: 0 };
+            leaderActualCollectionByDate[ld][dstr].amount += Math.round(t.amt);
+            leaderActualCollectionByDate[ld][dstr].cases += 1;
+          }
         }
       }
     });
@@ -390,12 +471,22 @@ function buildDashboardPayload({ cleaned, allTransactions = [] }) {
           }
           actualCollectionByDate[lpStr].amount += Math.round(c.totalRecvd);
           actualCollectionByDate[lpStr].cases += 1;
+
+          if (!agentActualCollectionByDate[c.agentName]) agentActualCollectionByDate[c.agentName] = {};
+          if (!agentActualCollectionByDate[c.agentName][lpStr]) agentActualCollectionByDate[c.agentName][lpStr] = { amount: 0, cases: 0 };
+          agentActualCollectionByDate[c.agentName][lpStr].amount += Math.round(c.totalRecvd);
+          agentActualCollectionByDate[c.agentName][lpStr].cases += 1;
+
+          if (!leaderActualCollectionByDate[c.leader]) leaderActualCollectionByDate[c.leader] = {};
+          if (!leaderActualCollectionByDate[c.leader][lpStr]) leaderActualCollectionByDate[c.leader][lpStr] = { amount: 0, cases: 0 };
+          leaderActualCollectionByDate[c.leader][lpStr].amount += Math.round(c.totalRecvd);
+          leaderActualCollectionByDate[c.leader][lpStr].cases += 1;
         }
       }
     });
   }
 
-  const todayStr = toDateStr(new Date());
+  const todayStr = getTodayStrIST();
 
   const meta = {
     agents: agentsList,
@@ -409,6 +500,8 @@ function buildDashboardPayload({ cleaned, allTransactions = [] }) {
     dateMax: toDateStr(dateMax),
     today: todayStr,
     actualCollectionByDate,
+    agentActualCollectionByDate,
+    leaderActualCollectionByDate,
   };
 
   return { cases, meta };
@@ -431,20 +524,36 @@ export async function getDashboardData(forceRefresh = false) {
     return _cachedPayload;
   }
 
-  // 1. Primary: Google Sheets master_data + COLLECTION tab
+  // 1. Primary: Google Sheets master_data + COLLECTION + Daywise Due tabs
   try {
-    const [rawMasterRows, rawCollRows] = await Promise.all([
+    const [rawMasterRows, rawCollRows, rawDaywiseRows] = await Promise.all([
       fetchRawSheetRows('master_data').catch(() => null),
       fetchRawSheetRows('COLLECTION').catch(() => null),
+      fetchRawSheetRows('Daywise Due').catch(() => null),
     ]);
 
     if (rawMasterRows && rawMasterRows.length > 0) {
       const { cleaned, allTransactions } = cleanRecords(rawMasterRows, rawCollRows || []);
       const payload = buildDashboardPayload({ cleaned, allTransactions });
+
+      // Add daywise due lookup directly from Daywise Due tab
+      const daywiseDueByDate = {};
+      if (Array.isArray(rawDaywiseRows)) {
+        for (const r of rawDaywiseRows) {
+          const dStr = String(r['DUE DATE'] || '').trim();
+          const tot = parseFloat(String(r['TOTAL'] || 0).replace(/,/g, ''));
+          const parsedD = parseDayFirstDate(dStr);
+          if (parsedD && !Number.isNaN(parsedD.getTime()) && tot > 0) {
+            daywiseDueByDate[toDateStr(parsedD)] = Math.round(tot);
+          }
+        }
+        console.log('[DataService-Node] Daywise Due mapping:', JSON.stringify(daywiseDueByDate));
+      }
+      payload.meta.daywiseDueByDate = daywiseDueByDate;
       payload.meta.dataSource = 'google_sheets_master_data_and_collection';
       _cachedPayload = payload;
       _lastCacheTime = now;
-      console.log(`[DataService-Node] Loaded ${payload.cases.length} cases and ${allTransactions.length} payment transactions from Google Sheets!`);
+      console.log(`[DataService-Node] Loaded ${payload.cases.length} cases, ${allTransactions.length} payment transactions, and Daywise Due mapping from Google Sheets!`);
       return payload;
     }
   } catch (err) {

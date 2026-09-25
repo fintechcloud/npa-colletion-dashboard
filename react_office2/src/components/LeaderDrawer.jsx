@@ -16,7 +16,7 @@ import { useLiveCollection } from '../context/LiveCollectionContext';
 export default function LeaderDrawer({ name, onClose, onOpenAgent }) {
   const { getLeaderLive, getAgentLive } = useLiveCollection();
   const leaderLive = useMemo(() => getLeaderLive(name), [getLeaderLive, name]);
-  const [isMaximized, setIsMaximized] = useState(false);
+  const [isMaximized, setIsMaximized] = useState(true);
 
   // Date filter state: 'overall' | 'month' | 'custom'
   const [filterMode, setFilterMode] = useState('overall');
@@ -44,7 +44,80 @@ export default function LeaderDrawer({ name, onClose, onOpenAgent }) {
   );
   const agg = useMemo(() => aggregate(rows), [rows]);
 
+  // 1. Dedicated Yesterday Due Date Cases for this leader (strictly cases where Due Date = Yesterday)
+  const ydayDueAgg = useMemo(() => {
+    if (!YESTERDAY_STR) return { due: 0, recvd: 0, cases: 0, pct: 0 };
+    const yRows = filterRows({ leader: name, from: YESTERDAY_STR, to: YESTERDAY_STR });
+    return aggregate(yRows);
+  }, [name]);
+  const ydayDueAmt = ydayDueAgg.recvd;
+  const ydayDueCases = ydayDueAgg.cases;
+
+  // 2. Dedicated Yesterday Total Cash Received for this leader (RCV DATE = Yesterday across all cases: due date, preclosed, overdue)
+  const actualYdayCash = useMemo(() => {
+    if (!YESTERDAY_STR || !META?.leaderActualCollectionByDate) return null;
+    return META.leaderActualCollectionByDate[name]?.[YESTERDAY_STR] || null;
+  }, [name]);
+  const ydayCashAmt = actualYdayCash?.amount ?? 0;
+  const ydayCashCases = actualYdayCash?.cases ?? 0;
+
+  // Dynamic Inspection Context for Leader:
+  // When a user filters a single date (e.g. 01/09/2026), these blocks adapt dynamically to that date!
+  const singleDate = (filterMode === 'custom' && customFrom && customFrom === customTo) ? customFrom : null;
+  const isCustomRange = (filterMode === 'custom' && customFrom && customTo && customFrom !== customTo);
+
+  const dynamicDueLabel = singleDate
+    ? `${fmtDateShort(singleDate)} Due Reco`
+    : isCustomRange
+    ? 'Period Due Reco'
+    : 'Yday Due Reco';
+
+  const dynamicCashLabel = singleDate
+    ? `${fmtDateShort(singleDate)} Bank Cash`
+    : isCustomRange
+    ? 'Period Bank Cash'
+    : 'Yday Bank Cash';
+
+  const dynamicDueData = useMemo(() => {
+    if (singleDate) {
+      const dRows = filterRows({ leader: name, from: singleDate, to: singleDate });
+      const a = aggregate(dRows);
+      return { amt: a.recvd, cases: a.cases };
+    }
+    if (isCustomRange) {
+      return { amt: agg.recvd, cases: agg.cases };
+    }
+    return { amt: ydayDueAmt, cases: ydayDueCases };
+  }, [singleDate, isCustomRange, name, agg.recvd, agg.cases, ydayDueAmt, ydayDueCases]);
+
+  const dynamicCashData = useMemo(() => {
+    if (!META?.leaderActualCollectionByDate || !META.leaderActualCollectionByDate[name]) {
+      return { amt: 0, cases: 0 };
+    }
+    const datesMap = META.leaderActualCollectionByDate[name];
+
+    if (singleDate) {
+      const val = datesMap[singleDate] || { amount: 0, cases: 0 };
+      return { amt: val.amount || 0, cases: val.cases || 0 };
+    }
+
+    if (isCustomRange) {
+      let totalAmt = 0;
+      let totalCases = 0;
+      Object.entries(datesMap).forEach(([dt, val]) => {
+        if (dt >= customFrom && dt <= customTo) {
+          totalAmt += val.amount || 0;
+          totalCases += val.cases || 0;
+        }
+      });
+      return { amt: totalAmt, cases: totalCases };
+    }
+
+    return { amt: ydayCashAmt, cases: ydayCashCases };
+  }, [singleDate, isCustomRange, customFrom, customTo, name, ydayCashAmt, ydayCashCases]);
+
   const ydayRow = agg.daily.find((d) => d.date === YESTERDAY_STR);
+
   const lastMonth = agg.monthly.length ? agg.monthly[agg.monthly.length - 1] : null;
 
   // Team aggregation within filtered date window
@@ -171,7 +244,7 @@ export default function LeaderDrawer({ name, onClose, onOpenAgent }) {
           <button
             type="button"
             onClick={() => setIsMaximized((v) => !v)}
-            title={isMaximized ? 'Restore Width' : 'Maximize to Full Screen'}
+            title={isMaximized ? 'Exit Full Screen (Drawer Mode)' : 'Expand to Full Screen'}
             className="w-8 h-8 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] flex items-center justify-center text-zinc-400 hover:text-white transition-all cursor-pointer"
           >
             {isMaximized ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
@@ -294,8 +367,8 @@ export default function LeaderDrawer({ name, onClose, onOpenAgent }) {
         )}
       </div>
 
-      {/* Mini KPI Grid: Spans 7 columns across big screen */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 mb-6">
+      {/* Mini KPI Grid: Spans 8 columns across big screen */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5 mb-6">
         <MiniKpi
           label="Live Today"
           value={leaderLive?.liveRecvd ? fmtINR(leaderLive.liveRecvd) : '₹0'}
@@ -303,8 +376,19 @@ export default function LeaderDrawer({ name, onClose, onOpenAgent }) {
         />
         <MiniKpi label="Total Due" value={fmtINR(agg.due)} />
         <MiniKpi label="Total Collection" value={fmtINR(agg.recvd)} accent />
-        <MiniKpi label="Recovery" value={`${agg.pct.toFixed(1)}%`} />
-        <MiniKpi label="Yesterday" value={ydayRow ? fmtINR(ydayRow.recvd) : '₹0'} />
+        <MiniKpi label="Recovery" value={`${agg.pct.toFixed(2)}%`} />
+        <MiniKpi
+          label={dynamicDueLabel}
+          value={fmtINR(dynamicDueData.amt)}
+          sub={singleDate ? `${dynamicDueData.cases} cases (Due date)` : `${dynamicDueData.cases} cases (Due)`}
+          badge="DUE DATE"
+        />
+        <MiniKpi
+          label={dynamicCashLabel}
+          value={fmtINR(dynamicCashData.amt)}
+          sub={singleDate ? `${dynamicCashData.cases} txns (Bank cash)` : `${dynamicCashData.cases} cases (All)`}
+          badge="RCV DATE"
+        />
         <MiniKpi
           label={filterMode === 'month' ? 'Period Due' : 'This Month'}
           value={filterMode === 'month' ? fmtINR(agg.due) : lastMonth ? fmtINR(lastMonth.recvd) : '—'}
@@ -343,11 +427,11 @@ export default function LeaderDrawer({ name, onClose, onOpenAgent }) {
                         )}
                       </div>
                       <div className="text-[11px] font-medium text-zinc-500">
-                        {v.cases} cases · {fmtINR(v.due)} due
+                        {v.cases} cases · <span title={fmtINRFull(v.due)}>{fmtINR(v.due)}</span> due
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-[13px] font-mono font-bold text-white group-hover:text-[#ff5533] transition-colors">
+                      <div className="text-[13px] font-mono font-bold text-white group-hover:text-[#ff5533] transition-colors" title={fmtINRFull(v.recvd)}>
                         {fmtINR(v.recvd)}
                       </div>
                       <div
@@ -355,7 +439,7 @@ export default function LeaderDrawer({ name, onClose, onOpenAgent }) {
                           pct >= 80 ? 'text-emerald-400' : pct >= 65 ? 'text-amber-400' : 'text-rose-400'
                         }`}
                       >
-                        {pct}%
+                        {pct.toFixed(2)}%
                       </div>
                     </div>
                   </button>
@@ -496,7 +580,7 @@ export default function LeaderDrawer({ name, onClose, onOpenAgent }) {
                     {fmtINRFull(trajSummary.totalRecvd)}
                   </span>
                   <span className="text-[14px] font-bold text-[#ff5533] font-mono">
-                    ({trajSummary.recoveryPct.toFixed(1)}% recovery)
+                    ({trajSummary.recoveryPct.toFixed(2)}% recovery)
                   </span>
                 </div>
               </div>
@@ -594,7 +678,7 @@ export default function LeaderDrawer({ name, onClose, onOpenAgent }) {
                               d.pct >= 80 ? 'text-emerald-400' : d.pct >= 65 ? 'text-amber-400' : 'text-rose-400'
                             }`}
                           >
-                            {d.pct.toFixed(1)}%
+                            {d.pct.toFixed(2)}%
                           </span>
                         </td>
                       </tr>
@@ -644,7 +728,7 @@ function LeaderTrajectoryTooltip({ active, payload }) {
                 : 'bg-rose-500/20 text-rose-400'
             }`}
           >
-            {data.pct.toFixed(1)}%
+            {data.pct.toFixed(2)}%
           </span>
         </div>
         <div className="space-y-1 text-[11px]">

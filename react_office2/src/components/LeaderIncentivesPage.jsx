@@ -525,7 +525,7 @@ export default function LeaderIncentivesPage({ onOpenLeader, onNavigatePage }) {
                           : 'bg-rose-500/15 text-rose-300 border-rose-500/30'
                       }`}
                     >
-                      {leader.pct.toFixed(1)}%
+                      {leader.pct.toFixed(2)}%
                     </span>
                   </td>
 

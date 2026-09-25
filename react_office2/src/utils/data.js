@@ -73,16 +73,21 @@ export const STATUS_COLORS = {
 };
 
 export function round1(n) {
-  return Math.round(n * 10) / 10;
+  return Math.round(n * 100) / 100;
+}
+export function round2(n) {
+  return Math.round(n * 100) / 100;
 }
 export function fmtINR(n) {
+  if (n === null || n === undefined || Number.isNaN(n)) return '₹0';
   const sign = n < 0 ? '-' : '';
-  n = Math.abs(Math.round(n));
-  if (n >= 10000000) return sign + '₹' + (n / 10000000).toFixed(2) + 'Cr';
-  if (n >= 100000) return sign + '₹' + (n / 100000).toFixed(2) + 'L';
-  return sign + '₹' + n.toLocaleString('en-IN');
+  const abs = Math.abs(Math.round(n));
+  if (abs >= 10000000) return sign + '₹' + (abs / 10000000).toFixed(2) + 'Cr';
+  if (abs >= 100000) return sign + '₹' + (abs / 100000).toFixed(2) + 'L';
+  return sign + '₹' + abs.toLocaleString('en-IN');
 }
 export function fmtINRFull(n) {
+  if (n === null || n === undefined || Number.isNaN(n)) return '₹0';
   return '₹' + Math.round(n).toLocaleString('en-IN');
 }
 export function fmtDateShort(dstr) {

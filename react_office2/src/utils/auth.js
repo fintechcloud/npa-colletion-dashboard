@@ -1,9 +1,8 @@
 import { createContext, useContext } from 'react';
 
 export const STORAGE_KEY = 'fastpaisa_executive_auth';
-
-export const DEFAULT_GOOGLE_CLIENT_ID = '862494048793-ime5l8ac6p31h852q8li1gcithkjekfa.apps.googleusercontent.com';
 export const USERS_DB_KEY = 'fastpaisa_user_database';
+export const DEFAULT_GOOGLE_CLIENT_ID = '862494048793-ime5l8ac6p31h852q8li1gcithkjekfa.apps.googleusercontent.com';
 
 export function getGoogleClientId() {
   try {
@@ -45,7 +44,7 @@ export const DEFAULT_CREDENTIALS = {
 
 /**
  * Pre-defined Authorized Database Accounts
- * ONLY accounts listed here can log in to the dashboard!
+ * Used for pre-mapped roles and emergency administrative access
  */
 export const AUTHORIZED_DATABASE_USERS = [
   {
@@ -96,10 +95,107 @@ export const AUTHORIZED_DATABASE_USERS = [
 ];
 
 /**
- * Get list of all registered users saved in database
+ * Retrieve all registered users from local cache + built-in defaults
  */
 export function getRegisteredUsers() {
+  try {
+    const raw = localStorage.getItem(USERS_DB_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        // Merge with built-in accounts so defaults are never lost
+        const emails = new Set(parsed.map(u => (u.email || '').toLowerCase()));
+        const merged = [...parsed];
+        for (const builtin of AUTHORIZED_DATABASE_USERS) {
+          if (!emails.has(builtin.email.toLowerCase())) {
+            merged.push(builtin);
+          }
+        }
+        return merged;
+      }
+    }
+  } catch (err) {
+    console.warn('Error reading registered users:', err);
+  }
   return AUTHORIZED_DATABASE_USERS;
+}
+
+/**
+ * Save or update a registered user in local database
+ */
+export function saveRegisteredUser(userData) {
+  try {
+    const users = getRegisteredUsers();
+    const cleanEmail = (userData.email || '').toLowerCase().trim();
+    const existingIndex = users.findIndex(u => (u.email || '').toLowerCase().trim() === cleanEmail);
+
+    let finalUser;
+    let isFirstTime = false;
+
+    if (existingIndex >= 0) {
+      finalUser = {
+        ...users[existingIndex],
+        ...userData,
+        lastLogin: new Date().toISOString(),
+      };
+      users[existingIndex] = finalUser;
+    } else {
+      isFirstTime = true;
+      finalUser = {
+        id: userData.id || `usr_${Date.now()}`,
+        name: userData.name || cleanEmail.split('@')[0],
+        email: cleanEmail,
+        avatar: userData.avatar || (userData.name || cleanEmail).slice(0, 2).toUpperCase(),
+        role: userData.role || 'Super Admin',
+        roleLabel: userData.roleLabel || '👑 Executive User',
+        department: userData.department || 'Collections Leadership Desk',
+        organization: userData.organization || 'Fast Paisa Technologies',
+        ...userData,
+        createdAt: new Date().toISOString(),
+        lastLogin: new Date().toISOString(),
+      };
+      users.push(finalUser);
+    }
+
+    localStorage.setItem(USERS_DB_KEY, JSON.stringify(users));
+    return { isFirstTime, user: finalUser };
+  } catch (err) {
+    console.warn('Error saving registered user:', err);
+    return { isFirstTime: false, user: userData };
+  }
+}
+
+/**
+ * Resolve user profile & role from email
+ */
+export function resolveUserProfile(firebaseUser) {
+  if (!firebaseUser) return null;
+
+  const email = (firebaseUser.email || '').toLowerCase().trim();
+  const displayName = firebaseUser.displayName || email.split('@')[0] || 'Executive User';
+  const photoURL = firebaseUser.photoURL || '';
+
+  // Check if known in pre-defined users
+  const known = AUTHORIZED_DATABASE_USERS.find(
+    u => u.email.toLowerCase() === email
+  );
+
+  const baseUser = {
+    id: firebaseUser.uid || known?.id || `usr_${Date.now()}`,
+    name: displayName || known?.name,
+    email: email,
+    picture: photoURL || known?.picture,
+    avatar: (displayName || 'EX').slice(0, 2).toUpperCase(),
+    role: known?.role || 'Super Admin',
+    roleLabel: known?.roleLabel || '👑 Verified Executive',
+    department: known?.department || 'Executive Leadership Desk',
+    organization: known?.organization || 'Fast Paisa Technologies',
+    authProvider: firebaseUser.providerData?.[0]?.providerId || 'firebase',
+    lastLogin: new Date().toISOString(),
+  };
+
+  const { user } = saveRegisteredUser(baseUser);
+  return user;
 }
 
 export const AuthContext = createContext(null);

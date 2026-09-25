@@ -16,6 +16,13 @@ const SCOPES = [
   'https://www.googleapis.com/auth/drive.readonly',
 ];
 
+export function maskSheetUrl(url) {
+  if (!url) return '';
+  const sheetId = extractSheetId(url);
+  if (!sheetId || sheetId.length < 10) return url;
+  return `https://docs.google.com/spreadsheets/d/${sheetId.slice(0, 6)}...${sheetId.slice(-4)} (Secured via .env)`;
+}
+
 export function loadConfig() {
   let fileCfg = {};
   try {
@@ -26,7 +33,7 @@ export function loadConfig() {
     console.error('[GoogleSheetsService] Error loading config:', err.message);
   }
   return {
-    sheet_url: process.env.GOOGLE_SHEET_URL || fileCfg.sheet_url || 'https://docs.google.com/spreadsheets/d/1xC_gMU1TClUFtWYxI2iN6zpquEqdUszPkFhiqgee2jQ/edit?gid=281759884#gid=281759884',
+    sheet_url: process.env.GOOGLE_SHEET_URL || fileCfg.sheet_url || '',
     worksheet_title: process.env.WORKSHEET_TITLE || fileCfg.worksheet_title || 'master_data',
     sheet_title: fileCfg.sheet_title || "FAST PAISE MASTER PRE Sep'26",
     last_synced: fileCfg.last_synced || null,
@@ -37,7 +44,13 @@ export function saveConfig(cfg) {
   try {
     const dir = path.dirname(CONFIG_PATH);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2), 'utf-8');
+    const toSave = {
+      sheet_url: process.env.GOOGLE_SHEET_URL ? '' : (cfg.sheet_url || ''),
+      worksheet_title: cfg.worksheet_title || 'master_data',
+      sheet_title: cfg.sheet_title || '',
+      last_synced: cfg.last_synced || new Date().toISOString(),
+    };
+    fs.writeFileSync(CONFIG_PATH, JSON.stringify(toSave, null, 2), 'utf-8');
   } catch (err) {
     console.error('[GoogleSheetsService] Error saving config:', err.message);
   }
@@ -280,7 +293,7 @@ export async function fetchLiveCollection() {
     hasCredentials: !!auth,
     authType,
     serviceAccountEmail: email,
-    sheetUrl: cfg.sheet_url,
+    sheetUrl: maskSheetUrl(cfg.sheet_url),
     sheetTitle: cfg.sheet_title || 'FAST PAISE MASTER PRE Sep\'26',
     lastSynced: cfg.last_synced,
     todayDate: todayStr,
@@ -299,7 +312,7 @@ export function getConnectionStatus() {
   return {
     hasCredentials: !!auth,
     connected: Boolean(cfg.sheet_url),
-    sheetUrl: cfg.sheet_url || '',
+    sheetUrl: maskSheetUrl(cfg.sheet_url),
     sheetTitle: cfg.sheet_title || '',
     worksheet: cfg.worksheet_title || '',
     lastSynced: cfg.last_synced || null,

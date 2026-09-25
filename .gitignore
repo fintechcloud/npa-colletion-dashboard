@@ -15,6 +15,7 @@ build/
 *service_account*.json
 *client_secret*.json
 authorized_user.json
+*google_sheet_config*.json
 .env
 .env.*
 !.env.example

@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { getDashboardData, refreshDashboardData } from './services/dataService.js';
@@ -145,17 +146,153 @@ app.get('/api/debug-sheet', async (req, res) => {
       }
     }
 
+    let sumLoanRepay = 0;
+    let sumTotalCollection = 0;
+    let sumManualColl = 0;
+    let sumActRp = 0;
+    let closedCount = 0;
+
+    const parseNum = (v) => {
+      if (typeof v === 'number') return v;
+      if (!v) return 0;
+      const clean = String(v).replace(/[^0-9.-]/g, '');
+      const n = parseFloat(clean);
+      return Number.isNaN(n) ? 0 : n;
+    };
+
+    let dueOn23Count = 0;
+    let dueOn23DueAmt = 0;
+    let dueOn23RecvdAmt = 0;
+
+    if (Array.isArray(masterRows)) {
+      for (const r of masterRows) {
+        const repayDate = String(r['Repayment Date'] || '').trim();
+        const due = parseNum(r['Loan Repay Amount'] || r['Loan Amount']);
+        const recvd = parseNum(r['TOTAL COLLECTION'] || r['MANUAL_COLL'] || r['Total Recvd']);
+        sumLoanRepay += due;
+        sumTotalCollection += parseNum(r['TOTAL COLLECTION']);
+        sumManualColl += parseNum(r['MANUAL_COLL']);
+        sumActRp += parseNum(r['ACT_RP']);
+        const st = String(r['latest Status'] || r['Current Status'] || '').toUpperCase();
+        if (st === 'CLOSED' || st === 'PRE-CLOSED') closedCount++;
+
+        if (repayDate.startsWith('23/09/2026') || repayDate.startsWith('23-09-2026') || repayDate.startsWith('2026-09-23')) {
+          dueOn23Count++;
+          dueOn23DueAmt += due;
+          dueOn23RecvdAmt += recvd;
+        }
+      }
+    }
+
+    let coll23Sum = 0;
+    let coll23Count = 0;
+    let coll24Sum = 0;
+    let coll24Count = 0;
+
+    if (Array.isArray(collRows)) {
+      for (const r of collRows) {
+        const brand = String(r['BRAND'] || '');
+        const loanNo = String(r['LOAN NO.'] || '');
+        if (brand === 'FastPaise' || loanNo.startsWith('FAST')) {
+          const rcvDate = String(r['RCV DATE'] || '');
+          const amt = parseNum(r['TOTAL RCV']);
+          if (rcvDate.startsWith('23/09/2026') || rcvDate.startsWith('23-09-2026')) {
+            coll23Sum += amt;
+            coll23Count++;
+          }
+          if (rcvDate.startsWith('24/09/2026') || rcvDate.startsWith('24-09-2026')) {
+            coll24Sum += amt;
+            coll24Count++;
+          }
+        }
+      }
+    }
+
+    const [perfRows, daywiseRows] = await Promise.all([
+      fetchRawSheetRows('PERFORMANCE REPORT').catch((e) => null),
+      fetchRawSheetRows('Daywise Due').catch((e) => null),
+    ]);
+
+    const find24Sep = (rows) => {
+      if (!Array.isArray(rows)) return null;
+      return rows.filter((r) => {
+        const str = JSON.stringify(r);
+        return str.includes('24 Sep') || str.includes('24/09') || str.includes('24-09');
+      });
+    };
+
+    let totCollSum = 0;
+    let manualCollSum = 0;
+    let preClosedCollSum = 0;
+    let actRpSum = 0;
+    let loanRepaySum = 0;
+
+    const loanSet24 = new Set();
+    const rows24 = [];
+
+    for (const r of (masterRows || [])) {
+      const d = String(r['Repayment Date'] || '');
+      if (d.startsWith('24-09-2026') || d.startsWith('24/09/2026') || d.startsWith('2026-09-24')) {
+        const ln = String(r['Loan No'] || '').trim();
+        loanSet24.add(ln);
+        totCollSum += parseNum(r['TOTAL COLLECTION']);
+        manualCollSum += parseNum(r['MANUAL_COLL']);
+        preClosedCollSum += parseNum(r['Pre Closed Coll']);
+        actRpSum += parseNum(r['ACT_RP']);
+        loanRepaySum += parseNum(r['Loan Repay Amount'] || r['Loan Amount']);
+        rows24.push(r);
+      }
+    }
+
+    // Now sum transactions from COLLECTION tab for these 59 loans
+    let collTabSum = 0;
+    let collTabSumOnOrBefore24 = 0;
+    for (const r of (collRows || [])) {
+      const ln = String(r['LOAN NO.'] || '').trim();
+      if (loanSet24.has(ln)) {
+        const amt = parseNum(r['TOTAL RCV']);
+        collTabSum += amt;
+        const rcvDate = String(r['RCV DATE'] || '');
+        // Check if received on or before 24 Sep
+        if (!rcvDate.includes('25/09') && !rcvDate.includes('25-09')) {
+          collTabSumOnOrBefore24 += amt;
+        }
+      }
+    }
+
+    // Compare each date in Daywise Due with master_data ACT_RP sum
+    const dateComp = {};
+    if (Array.isArray(daywiseRows)) {
+      for (const r of daywiseRows) {
+        const dt = String(r['DUE DATE'] || '').trim();
+        const tot = parseNum(r['TOTAL']);
+        if (dt && tot > 0) {
+          dateComp[dt] = { daywiseDueTotal: tot, masterActRpSum: 0, masterLoanRepaySum: 0, masterRecvdSum: 0, count: 0 };
+        }
+      }
+    }
+
+    if (Array.isArray(masterRows)) {
+      for (const r of masterRows) {
+        const rd = String(r['Repayment Date'] || '').trim();
+        const act = parseNum(r['ACT_RP']);
+        const lr = parseNum(r['Loan Repay Amount'] || r['Loan Amount']);
+        const rec = parseNum(r['TOTAL COLLECTION'] || r['MANUAL_COLL'] || r['Total Recvd']);
+        // Match dates
+        for (const [dt, obj] of Object.entries(dateComp)) {
+          if (rd.includes(dt) || rd.startsWith(dt)) {
+            obj.masterActRpSum += act;
+            obj.masterLoanRepaySum += lr;
+            obj.masterRecvdSum += rec;
+            obj.count++;
+          }
+        }
+      }
+    }
+
     res.json({
-      collTotal: Array.isArray(collRows) ? collRows.length : 0,
-      masterTotal: Array.isArray(masterRows) ? masterRows.length : 0,
-      collPrefixes,
-      masterPrefixes,
-      sampleByPrefix,
-      matchingCounts: {
-        fastMatchesMaster,
-        snapMatchesMaster,
-        f1spMatchesMaster,
-      },
+      daywiseRowsSample: Array.isArray(daywiseRows) ? daywiseRows.slice(0, 15) : [],
+      dateComp,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

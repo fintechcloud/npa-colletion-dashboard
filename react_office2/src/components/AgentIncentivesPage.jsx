@@ -942,7 +942,7 @@ export default function AgentIncentivesPage({ onOpenAgent, onNavigatePage }) {
                           : 'bg-rose-500/15 text-rose-300 border-rose-500/30'
                       }`}
                     >
-                      {agent.pct.toFixed(1)}%
+                      {agent.pct.toFixed(2)}%
                     </span>
                   </td>
 

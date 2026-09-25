@@ -16,7 +16,7 @@ import { useLiveCollection } from '../context/LiveCollectionContext';
 export default function AgentDrawer({ name, onClose }) {
   const { getAgentLive } = useLiveCollection();
   const agentLive = useMemo(() => getAgentLive(name), [getAgentLive, name]);
-  const [isMaximized, setIsMaximized] = useState(false);
+  const [isMaximized, setIsMaximized] = useState(true);
 
   // Date filter state: 'overall' | 'month' | 'custom'
   const [filterMode, setFilterMode] = useState('overall');
@@ -48,8 +48,80 @@ export default function AgentDrawer({ name, onClose }) {
   const leader = META.agentPrimaryLeader[name];
   const multi = META.agentMultiLeaders[name];
 
-  // Yesterday and Latest Month reference
+  // 1. Dedicated Yesterday Due Date Cases (strictly cases where Due Date = Yesterday)
+  const ydayDueAgg = useMemo(() => {
+    if (!YESTERDAY_STR) return { due: 0, recvd: 0, cases: 0, pct: 0 };
+    const yRows = filterRows({ agent: name, from: YESTERDAY_STR, to: YESTERDAY_STR });
+    return aggregate(yRows);
+  }, [name]);
+  const ydayDueAmt = ydayDueAgg.recvd;
+  const ydayDueCases = ydayDueAgg.cases;
+
+  // 2. Dedicated Yesterday Total Cash Received (RCV DATE = Yesterday across all cases: due date, preclosed, overdue)
+  const actualYdayCash = useMemo(() => {
+    if (!YESTERDAY_STR || !META?.agentActualCollectionByDate) return null;
+    return META.agentActualCollectionByDate[name]?.[YESTERDAY_STR] || null;
+  }, [name]);
+  const ydayCashAmt = actualYdayCash?.amount ?? 0;
+  const ydayCashCases = actualYdayCash?.cases ?? 0;
+
+  // Dynamic Inspection Context:
+  // When a user filters a single date (e.g. 01/09/2026), these blocks adapt dynamically to that date!
+  const singleDate = (filterMode === 'custom' && customFrom && customFrom === customTo) ? customFrom : null;
+  const isCustomRange = (filterMode === 'custom' && customFrom && customTo && customFrom !== customTo);
+
+  const dynamicDueLabel = singleDate
+    ? `${fmtDateShort(singleDate)} Due Reco`
+    : isCustomRange
+    ? 'Period Due Reco'
+    : 'Yday Due Reco';
+
+  const dynamicCashLabel = singleDate
+    ? `${fmtDateShort(singleDate)} Bank Cash`
+    : isCustomRange
+    ? 'Period Bank Cash'
+    : 'Yday Bank Cash';
+
+  const dynamicDueData = useMemo(() => {
+    if (singleDate) {
+      const dRows = filterRows({ agent: name, from: singleDate, to: singleDate });
+      const a = aggregate(dRows);
+      return { amt: a.recvd, cases: a.cases };
+    }
+    if (isCustomRange) {
+      return { amt: agg.recvd, cases: agg.cases };
+    }
+    return { amt: ydayDueAmt, cases: ydayDueCases };
+  }, [singleDate, isCustomRange, name, agg.recvd, agg.cases, ydayDueAmt, ydayDueCases]);
+
+  const dynamicCashData = useMemo(() => {
+    if (!META?.agentActualCollectionByDate || !META.agentActualCollectionByDate[name]) {
+      return { amt: 0, cases: 0 };
+    }
+    const datesMap = META.agentActualCollectionByDate[name];
+
+    if (singleDate) {
+      const val = datesMap[singleDate] || { amount: 0, cases: 0 };
+      return { amt: val.amount || 0, cases: val.cases || 0 };
+    }
+
+    if (isCustomRange) {
+      let totalAmt = 0;
+      let totalCases = 0;
+      Object.entries(datesMap).forEach(([dt, val]) => {
+        if (dt >= customFrom && dt <= customTo) {
+          totalAmt += val.amount || 0;
+          totalCases += val.cases || 0;
+        }
+      });
+      return { amt: totalAmt, cases: totalCases };
+    }
+
+    return { amt: ydayCashAmt, cases: ydayCashCases };
+  }, [singleDate, isCustomRange, customFrom, customTo, name, ydayCashAmt, ydayCashCases]);
+
   const ydayRow = agg.daily.find((d) => d.date === YESTERDAY_STR);
+
   const lastMonth = agg.monthly.length ? agg.monthly[agg.monthly.length - 1] : null;
 
   // Month-wise performance bar chart data
@@ -165,7 +237,7 @@ export default function AgentDrawer({ name, onClose }) {
           <button
             type="button"
             onClick={() => setIsMaximized((v) => !v)}
-            title={isMaximized ? 'Restore Width' : 'Maximize to Full Screen'}
+            title={isMaximized ? 'Exit Full Screen (Drawer Mode)' : 'Expand to Full Screen'}
             className="w-8 h-8 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] flex items-center justify-center text-zinc-400 hover:text-white transition-all cursor-pointer"
           >
             {isMaximized ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
@@ -291,13 +363,24 @@ export default function AgentDrawer({ name, onClose }) {
         )}
       </div>
 
-      {/* Mini KPI Grid: Spans 7 columns across the big screen */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 mb-6">
+      {/* Mini KPI Grid: Spans 8 columns across the big screen */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5 mb-6">
         <MiniKpi label="Total Due" value={fmtINR(agg.due)} />
         <MiniKpi label="Total Collection" value={fmtINR(agg.recvd)} accent />
+        <MiniKpi label="Recovery" value={`${agg.pct.toFixed(2)}%`} />
         <MiniKpi label="Live Today" value={fmtINR(agentLive?.liveRecvd || 0)} live />
-        <MiniKpi label="Recovery" value={`${agg.pct.toFixed(1)}%`} />
-        <MiniKpi label="Yesterday" value={ydayRow ? fmtINR(ydayRow.recvd) : '₹0'} />
+        <MiniKpi
+          label={dynamicDueLabel}
+          value={fmtINR(dynamicDueData.amt)}
+          sub={singleDate ? `${dynamicDueData.cases} cases (Due date)` : `${dynamicDueData.cases} cases (Due)`}
+          badge="DUE DATE"
+        />
+        <MiniKpi
+          label={dynamicCashLabel}
+          value={fmtINR(dynamicCashData.amt)}
+          sub={singleDate ? `${dynamicCashData.cases} txns (Bank cash)` : `${dynamicCashData.cases} cases (All)`}
+          badge="RCV DATE"
+        />
         <MiniKpi
           label={filterMode === 'month' ? 'Period Due' : 'This Month'}
           value={filterMode === 'month' ? fmtINR(agg.due) : lastMonth ? fmtINR(lastMonth.recvd) : '—'}
@@ -466,7 +549,7 @@ export default function AgentDrawer({ name, onClose }) {
                     {fmtINRFull(trajSummary.totalRecvd)}
                   </span>
                   <span className="text-[14px] font-bold text-[#ff5533] font-mono">
-                    ({trajSummary.recoveryPct.toFixed(1)}% recovery)
+                    ({trajSummary.recoveryPct.toFixed(2)}% recovery)
                   </span>
                 </div>
               </div>
@@ -555,7 +638,7 @@ export default function AgentDrawer({ name, onClose }) {
                               d.pct >= 80 ? 'text-emerald-400' : d.pct >= 65 ? 'text-amber-400' : 'text-rose-400'
                             }`}
                           >
-                            {d.pct.toFixed(1)}%
+                            {d.pct.toFixed(2)}%
                           </span>
                         </td>
                       </tr>
@@ -578,39 +661,51 @@ export function Drawer({ onClose, isMaximized = false, children }) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex justify-end"
+        className={`fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex ${
+          isMaximized ? 'justify-center items-stretch' : 'justify-end'
+        }`}
         onClick={(e) => e.target === e.currentTarget && onClose()}
       >
         <motion.div
-          initial={{ x: 60, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          exit={{ x: 60, opacity: 0 }}
+          initial={{ x: isMaximized ? 0 : 60, y: isMaximized ? 15 : 0, opacity: 0 }}
+          animate={{ x: 0, y: 0, opacity: 1 }}
+          exit={{ x: isMaximized ? 0 : 60, y: isMaximized ? 15 : 0, opacity: 0 }}
           transition={{ type: 'spring', stiffness: 350, damping: 32 }}
-          className={`h-full bg-[#0d0e15]/90 backdrop-blur-2xl border-l border-white/[0.08] p-6 sm:p-8 overflow-y-auto scroll-theme shadow-2xl text-zinc-100 transition-all duration-200 ${
+          className={`h-full bg-[#0d0e15] overflow-y-auto scroll-theme shadow-2xl text-zinc-100 transition-all duration-200 ${
             isMaximized
-              ? 'w-[98vw] max-w-[1640px]'
-              : 'w-[940px] xl:w-[1100px] 2xl:w-[1260px] max-w-[96vw]'
+              ? 'w-full h-full max-w-full p-6 sm:p-8 lg:p-10 border-0'
+              : 'w-[940px] xl:w-[1100px] 2xl:w-[1260px] max-w-[96vw] border-l border-white/[0.08] p-6 sm:p-8 backdrop-blur-2xl'
           }`}
         >
-          {children}
+          <div className={isMaximized ? 'max-w-[1720px] mx-auto w-full' : 'w-full'}>
+            {children}
+          </div>
         </motion.div>
       </motion.div>
     </AnimatePresence>
   );
 }
 
-export function MiniKpi({ label, value, accent, live }) {
+export function MiniKpi({ label, value, sub, badge, accent, live }) {
   return (
-    <div className={`bg-[#141520] border rounded-xl p-3 shadow-md transition-colors ${
+    <div className={`bg-[#141520] border rounded-xl p-3 shadow-md transition-colors flex flex-col justify-between ${
       live ? 'border-emerald-500/30 bg-emerald-500/[0.04]' : 'border-white/[0.06]'
     }`}>
-      <div className="text-[9.5px] font-bold text-zinc-500 uppercase tracking-wider font-display flex items-center gap-1">
-        {live && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />}
-        <span>{label}</span>
+      <div className="text-[9.5px] font-bold text-zinc-500 uppercase tracking-wider font-display flex items-center justify-between gap-1">
+        <span className="flex items-center gap-1 truncate">
+          {live && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />}
+          <span>{label}</span>
+        </span>
+        {badge && (
+          <span className="text-[8px] px-1 py-0.2 rounded font-mono font-bold bg-white/[0.06] text-zinc-400 border border-white/[0.06] shrink-0">
+            {badge}
+          </span>
+        )}
       </div>
       <div className={`text-[15px] font-mono font-bold mt-1 ${
         live ? 'text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.35)]' : accent ? 'text-[#ff5533]' : 'text-white'
       }`}>{value}</div>
+      {sub && <div className="text-[9px] text-zinc-400 mt-0.5 font-medium truncate">{sub}</div>}
     </div>
   );
 }
@@ -651,7 +746,7 @@ function TrajectoryTooltip({ active, payload }) {
           <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
             data.pct >= 80 ? 'bg-emerald-500/20 text-emerald-400' : data.pct >= 65 ? 'bg-amber-500/20 text-amber-300' : 'bg-rose-500/20 text-rose-400'
           }`}>
-            {data.pct.toFixed(1)}%
+            {data.pct.toFixed(2)}%
           </span>
         </div>
         <div className="space-y-1 text-[11px]">

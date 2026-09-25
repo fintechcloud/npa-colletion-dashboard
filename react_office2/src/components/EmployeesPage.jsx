@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
-import { computeEmployeeRows, fmtINR, titleCase, initials, pctBand, META, LEADERS, fmtMonth } from '../utils/data';
+import { computeEmployeeRows, fmtINR, fmtINRFull, titleCase, initials, pctBand, META, LEADERS, fmtMonth } from '../utils/data';
 import { useLiveCollection } from '../context/LiveCollectionContext';
 
 const bandClass = {
@@ -15,6 +15,7 @@ export default function EmployeesPage({ onOpenAgent }) {
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState('recvd');
   const [statusFilter, setStatusFilter] = useState('');
+  const [showExact, setShowExact] = useState(false);
 
   // Month date range boundaries from dataset
   const latestMonthStr = useMemo(() => (META.dateMax ? META.dateMax.slice(0, 7) : '2026-07'), []);
@@ -181,6 +182,34 @@ export default function EmployeesPage({ onOpenAgent }) {
             </button>
           ))}
         </div>
+
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider font-display">Format:</span>
+          <div className="flex bg-black/40 border border-white/[0.08] rounded-xl p-0.5 gap-0.5 shadow-inner">
+            <button
+              type="button"
+              onClick={() => setShowExact(false)}
+              className={`text-[11.5px] font-bold px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                !showExact
+                  ? 'bg-white/[0.12] text-white shadow-sm border border-white/[0.08]'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              Compact (L/Cr)
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowExact(true)}
+              className={`text-[11.5px] font-bold px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                showExact
+                  ? 'bg-gradient-to-r from-[#ff5e3a] to-[#ff3b30] text-white shadow-[0_0_12px_rgba(255,59,48,0.35)]'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              ₹ Exact Rupees (Sheet Match)
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Cards Grid */}
@@ -207,8 +236,20 @@ export default function EmployeesPage({ onOpenAgent }) {
                     <div className="text-[14px] font-bold text-white group-hover:text-[#ff5533] transition-colors truncate font-display">
                       {e.name}
                     </div>
-                    <div className="text-[11px] font-medium text-zinc-400 truncate">
-                      {titleCase(e.leader)}{e.multiLeader ? ' · multi-team' : ''}
+                    <div className="text-[11px] font-medium text-zinc-400 truncate flex items-center gap-1.5 flex-wrap">
+                      <span>{titleCase(e.leader)}</span>
+                      <span>·</span>
+                      <span className="text-zinc-300 font-mono" title={fmtINRFull(e.due)}>
+                        {showExact ? fmtINRFull(e.due) : fmtINR(e.due)} due
+                      </span>
+                      {e.multiLeader && (
+                        <span
+                          className="px-1.5 py-0.2 rounded bg-amber-500/15 border border-amber-500/30 text-[9.5px] font-semibold text-amber-300"
+                          title="This agent is assigned under multiple Team Leaders. Select a specific Team Leader filter above to inspect individual TL cohort matching Google Sheets."
+                        >
+                          Shared TL
+                        </span>
+                      )}
                     </div>
                   </div>
                   {i < 3 && (
@@ -235,12 +276,21 @@ export default function EmployeesPage({ onOpenAgent }) {
                 {/* Bottom stats: Cases, Collected, Live Today, Recovery */}
                 <div className="grid grid-cols-4 gap-1.5 border-t border-white/[0.06] pt-3 text-left">
                   <MiniStat label="Cases" value={e.cases} />
-                  <MiniStat label="Collected" value={fmtINR(e.recvd)} />
-                  <MiniStat label="Live Today" value={fmtINR(e.liveRecvd || 0)} live />
+                  <MiniStat
+                    label="Collected"
+                    value={showExact ? fmtINRFull(e.recvd) : fmtINR(e.recvd)}
+                    title={fmtINRFull(e.recvd)}
+                  />
+                  <MiniStat
+                    label="Live Today"
+                    value={showExact ? fmtINRFull(e.liveRecvd || 0) : fmtINR(e.liveRecvd || 0)}
+                    title={fmtINRFull(e.liveRecvd || 0)}
+                    live
+                  />
                   <div className="text-right">
                     <div className="text-[9.5px] font-bold text-zinc-500 uppercase tracking-wider font-display">Recovery</div>
                     <span className={`font-mono font-bold text-[11px] px-2 py-0.5 rounded-full inline-block mt-1 ${bandClass[band]}`}>
-                      {e.pct.toFixed(1)}%
+                      {e.pct.toFixed(2)}%
                     </span>
                   </div>
                 </div>
@@ -253,9 +303,9 @@ export default function EmployeesPage({ onOpenAgent }) {
   );
 }
 
-function MiniStat({ label, value, accent, live }) {
+function MiniStat({ label, value, accent, live, title }) {
   return (
-    <div className="min-w-0">
+    <div className="min-w-0" title={title}>
       <div className="text-[9.5px] font-bold text-zinc-500 uppercase tracking-wider font-display flex items-center gap-1">
         {live && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />}
         <span className="truncate">{label}</span>

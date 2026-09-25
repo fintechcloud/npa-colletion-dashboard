@@ -314,7 +314,7 @@ export default function StatePortfolioPage() {
                         {/* Recovery % + Status badge matching reference image */}
                         <td className="py-3 px-3">
                           <div className="flex items-center gap-2">
-                            <span className="font-mono font-bold text-zinc-200">{s.pct.toFixed(1)}%</span>
+                            <span className="font-mono font-bold text-zinc-200">{s.pct.toFixed(2)}%</span>
                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full font-mono whitespace-nowrap ${style.badge}`}>
                               {style.label}
                             </span>

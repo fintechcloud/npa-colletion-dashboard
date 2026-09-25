@@ -58,6 +58,33 @@ export default function OverviewPage({ onOpenAgent }) {
   const mtdAgg = useMemo(() => aggregate(mtdRows), [mtdRows]);
   const mtdClosedLike = (mtdAgg.statusCount['CLOSED'] || 0) + (mtdAgg.statusCount['PRE-CLOSED'] || 0);
 
+  // Dynamic Yesterday Due Cases Only: strictly cases where Due Date = Yesterday (updates automatically every day)
+  const ydayDateLabel = useMemo(() => {
+    return YESTERDAY_STR ? fmtDateShort(YESTERDAY_STR) : 'Yesterday';
+  }, []);
+
+  const ydayDueRows = useMemo(() => {
+    if (!YESTERDAY_STR) return [];
+    return filterRows({
+      leader: filters.leader,
+      agent: filters.agent,
+      type: filters.type,
+      state: filters.state,
+      from: YESTERDAY_STR,
+      to: YESTERDAY_STR,
+    });
+  }, [filters]);
+
+  const ydayDueAgg = useMemo(() => aggregate(ydayDueRows), [ydayDueRows]);
+  const ydayDueTotal = useMemo(() => {
+    return (META.daywiseDueByDate && META.daywiseDueByDate[YESTERDAY_STR])
+      ? META.daywiseDueByDate[YESTERDAY_STR]
+      : ydayDueAgg.due;
+  }, [ydayDueAgg.due]);
+  const ydayDuePct = useMemo(() => {
+    return ydayDueTotal > 0 ? (ydayDueAgg.recvd / ydayDueTotal) * 100 : ydayDueAgg.pct;
+  }, [ydayDueTotal, ydayDueAgg.recvd, ydayDueAgg.pct]);
+
   const remaining = agg.due - agg.recvd;
   const ydayRow = agg.daily.find((d) => d.date === YESTERDAY_STR);
   const actualYday = META.actualCollectionByDate ? META.actualCollectionByDate[YESTERDAY_STR] : null;
@@ -128,13 +155,19 @@ export default function OverviewPage({ onOpenAgent }) {
               </button>
               <span className="text-zinc-700">•</span>
               <div className="flex items-center gap-1.5 text-[11.5px]">
+                <span className="text-zinc-500 font-normal">Yday Due ({ydayDateLabel}):</span>
+                <span className="text-amber-400 font-mono font-semibold">{ydayDuePct.toFixed(2)}%</span>
+                <span className="text-zinc-400 font-mono text-[10.5px]">({fmtINR(ydayDueAgg.recvd)}/{fmtINR(ydayDueTotal)})</span>
+              </div>
+              <span className="text-zinc-700">•</span>
+              <div className="flex items-center gap-1.5 text-[11.5px]">
                 <span className="text-zinc-500 font-normal">MTD Recov ({mtdRangeLabel}):</span>
-                <span className="text-emerald-400 font-mono font-semibold">{mtdAgg.pct.toFixed(1)}%</span>
+                <span className="text-emerald-400 font-mono font-semibold">{mtdAgg.pct.toFixed(2)}%</span>
               </div>
               <span className="text-zinc-700">•</span>
               <div className="flex items-center gap-1.5 text-[11.5px]">
                 <span className="text-zinc-500 font-normal">Full Month:</span>
-                <span className="text-orange-400 font-mono font-semibold">{agg.pct.toFixed(1)}%</span>
+                <span className="text-orange-400 font-mono font-semibold">{agg.pct.toFixed(2)}%</span>
               </div>
               <span className="text-zinc-700">•</span>
               <Stat label="Total Due" value={fmtINR(agg.due)} />
@@ -147,7 +180,7 @@ export default function OverviewPage({ onOpenAgent }) {
               <span className="text-zinc-700">•</span>
               <Stat label="Active Leaders" value={agg.leaderCount} />
               <span className="text-zinc-700">•</span>
-              <Stat label="Yesterday" value={fmtINR(ydayAmount)} />
+              <Stat label={`Yday Due Coll (${ydayDateLabel})`} value={fmtINR(ydayDueAgg.recvd)} />
             </div>
           ))}
         </div>
@@ -197,42 +230,45 @@ export default function OverviewPage({ onOpenAgent }) {
         />
       </div>
 
-      {/* Row 2 KPI Cards: Recovery Performance & Operations (4 clean, spacious columns) */}
+      {/* Row 2 KPI Cards: Recovery Performance (Yesterday Due, MTD, Full Month) & Portfolio Scope */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
           index={4}
+          label="Yesterday Due Recovery"
+          raw={ydayDuePct}
+          format={(v) => `${v.toFixed(2)}%`}
+          dateRange={`Due: ${ydayDateLabel}`}
+          sub={`${fmtINR(ydayDueAgg.recvd)} of ${fmtINR(ydayDueTotal)} (${ydayDueAgg.cases.toLocaleString('en-IN')} cases)`}
+          icon={TrendingUp}
+          tone="warn"
+        />
+        <KpiCard
+          index={5}
           label="MTD Recovery"
           raw={mtdAgg.pct}
-          format={(v) => `${v.toFixed(1)}%`}
+          format={(v) => `${v.toFixed(2)}%`}
           dateRange={mtdRangeLabel}
           sub={`${fmtINR(mtdAgg.recvd)} of ${fmtINR(mtdAgg.due)} (${mtdAgg.cases.toLocaleString('en-IN')} cases)`}
           icon={TrendingUp}
           tone="live"
         />
         <KpiCard
-          index={5}
+          index={6}
           label="Full Month Recovery"
           raw={agg.pct}
-          format={(v) => `${v.toFixed(1)}%`}
+          format={(v) => `${v.toFixed(2)}%`}
           dateRange="01 Sep – 30 Sep"
           sub={`All ${agg.cases.toLocaleString('en-IN')} cases · Total scope`}
           icon={TrendingUp}
           tone="brand"
         />
         <KpiCard
-          index={6}
+          index={7}
           label="Total Cases"
           raw={agg.cases}
           format={(v) => Math.round(v).toLocaleString('en-IN')}
-          sub={`${closedLike.toLocaleString('en-IN')} settled / closed`}
+          sub={`${closedLike.toLocaleString('en-IN')} settled / closed · ${agg.agentCount} Agents`}
           icon={Layers}
-        />
-        <KpiCard
-          index={7}
-          label="Active Team"
-          value={`${agg.agentCount} Agents`}
-          sub={`${agg.leaderCount} team leaders active`}
-          icon={Users}
         />
       </div>
 
