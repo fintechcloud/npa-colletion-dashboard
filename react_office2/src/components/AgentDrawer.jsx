@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import {
   X, Calendar, ChevronDown, ChevronUp, TrendingUp, CalendarDays, BarChart2,
-  Maximize2, Minimize2
+  Maximize2, Minimize2, Check, Filter
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -10,7 +10,7 @@ import {
 import {
   filterRows, aggregate, STATUSES, STATUS_COLORS, YESTERDAY_STR, META,
   fmtINR, fmtINRFull, fmtDateShort, fmtMonth, titleCase, round1,
-  getAgentDomainsDetailed, DOMAIN_DOT_COLORS,
+  getAgentDomainsDetailed, DOMAIN_DOT_COLORS, offsetToStr,
 } from '../utils/data';
 import { useLiveCollection } from '../context/LiveCollectionContext';
 
@@ -18,7 +18,32 @@ export default function AgentDrawer({ name, onClose }) {
   const { getAgentLive } = useLiveCollection();
   const agentLive = useMemo(() => getAgentLive(name), [getAgentLive, name]);
   const agentDomains = useMemo(() => getAgentDomainsDetailed(name), [name]);
+  const totalAgentCases = useMemo(() => agentDomains.reduce((sum, d) => sum + d.cases, 0), [agentDomains]);
   const [isMaximized, setIsMaximized] = useState(true);
+
+  // Multi-domain selection filter (empty Set = All Domains)
+  const [selectedDomains, setSelectedDomains] = useState(new Set());
+
+  const toggleDomain = (domainName) => {
+    setSelectedDomains((prev) => {
+      const next = new Set(prev);
+      if (next.has(domainName)) {
+        next.delete(domainName);
+      } else {
+        next.add(domainName);
+      }
+      return next;
+    });
+  };
+
+  const clearDomainFilter = () => {
+    setSelectedDomains(new Set());
+  };
+
+  const activeDomainsList = useMemo(
+    () => (selectedDomains.size > 0 ? Array.from(selectedDomains) : undefined),
+    [selectedDomains]
+  );
 
   // Date filter state: 'overall' | 'month' | 'custom'
   const [filterMode, setFilterMode] = useState('overall');
@@ -39,10 +64,10 @@ export default function AgentDrawer({ name, onClose }) {
   const activeFrom = filterMode === 'month' ? thisMonthFrom : filterMode === 'custom' ? customFrom : '';
   const activeTo = filterMode === 'month' ? thisMonthTo : filterMode === 'custom' ? customTo : '';
 
-  // Filtered rows & aggregated metrics for this agent
+  // Filtered rows & aggregated metrics for this agent (domain-filtered)
   const rows = useMemo(
-    () => filterRows({ agent: name, from: activeFrom, to: activeTo }),
-    [name, activeFrom, activeTo]
+    () => filterRows({ agent: name, domains: activeDomainsList, from: activeFrom, to: activeTo }),
+    [name, activeDomainsList, activeFrom, activeTo]
   );
   const agg = useMemo(() => aggregate(rows), [rows]);
 
@@ -53,9 +78,9 @@ export default function AgentDrawer({ name, onClose }) {
   // 1. Dedicated Yesterday Due Date Cases (strictly cases where Due Date = Yesterday)
   const ydayDueAgg = useMemo(() => {
     if (!YESTERDAY_STR) return { due: 0, recvd: 0, cases: 0, pct: 0 };
-    const yRows = filterRows({ agent: name, from: YESTERDAY_STR, to: YESTERDAY_STR });
+    const yRows = filterRows({ agent: name, domains: activeDomainsList, from: YESTERDAY_STR, to: YESTERDAY_STR });
     return aggregate(yRows);
-  }, [name]);
+  }, [name, activeDomainsList]);
   const ydayDueAmt = ydayDueAgg.recvd;
   const ydayDueCases = ydayDueAgg.cases;
 
@@ -86,7 +111,7 @@ export default function AgentDrawer({ name, onClose }) {
 
   const dynamicDueData = useMemo(() => {
     if (singleDate) {
-      const dRows = filterRows({ agent: name, from: singleDate, to: singleDate });
+      const dRows = filterRows({ agent: name, domains: activeDomainsList, from: singleDate, to: singleDate });
       const a = aggregate(dRows);
       return { amt: a.recvd, cases: a.cases };
     }
@@ -94,9 +119,37 @@ export default function AgentDrawer({ name, onClose }) {
       return { amt: agg.recvd, cases: agg.cases };
     }
     return { amt: ydayDueAmt, cases: ydayDueCases };
-  }, [singleDate, isCustomRange, name, agg.recvd, agg.cases, ydayDueAmt, ydayDueCases]);
+  }, [singleDate, isCustomRange, name, activeDomainsList, agg.recvd, agg.cases, ydayDueAmt, ydayDueCases]);
 
   const dynamicCashData = useMemo(() => {
+    // When domain filter is active, calculate bank cash directly from filtered rows
+    if (selectedDomains.size > 0) {
+      let totalAmt = 0;
+      let totalCases = 0;
+      for (const r of rows) {
+        if (r[6] > 0 && r[13] !== undefined && r[13] >= 0) {
+          const rcvDateStr = offsetToStr(r[13]);
+          if (singleDate) {
+            if (rcvDateStr === singleDate) {
+              totalAmt += r[6];
+              totalCases++;
+            }
+          } else if (isCustomRange) {
+            if (rcvDateStr >= customFrom && rcvDateStr <= customTo) {
+              totalAmt += r[6];
+              totalCases++;
+            }
+          } else {
+            if (rcvDateStr === YESTERDAY_STR) {
+              totalAmt += r[6];
+              totalCases++;
+            }
+          }
+        }
+      }
+      return { amt: totalAmt, cases: totalCases };
+    }
+
     if (!META?.agentActualCollectionByDate || !META.agentActualCollectionByDate[name]) {
       return { amt: 0, cases: 0 };
     }
@@ -120,7 +173,7 @@ export default function AgentDrawer({ name, onClose }) {
     }
 
     return { amt: ydayCashAmt, cases: ydayCashCases };
-  }, [singleDate, isCustomRange, customFrom, customTo, name, ydayCashAmt, ydayCashCases]);
+  }, [selectedDomains, rows, singleDate, isCustomRange, customFrom, customTo, name, ydayCashAmt, ydayCashCases]);
 
   const ydayRow = agg.daily.find((d) => d.date === YESTERDAY_STR);
 
@@ -132,12 +185,12 @@ export default function AgentDrawer({ name, onClose }) {
     [agg.monthly]
   );
 
-  // All distinct months available for this agent across full dataset (for trajectory switcher tabs)
+  // All distinct months available for this agent across filtered domains (for trajectory switcher tabs)
   const availableMonths = useMemo(() => {
-    const allAgentRows = filterRows({ agent: name });
+    const allAgentRows = filterRows({ agent: name, domains: activeDomainsList });
     const allAgg = aggregate(allAgentRows);
     return allAgg.monthly.map((m) => m.month);
-  }, [name]);
+  }, [name, activeDomainsList]);
 
 
   // Daily Trajectory Data: either filtered to selected month or across active dataset
@@ -234,23 +287,75 @@ export default function AgentDrawer({ name, onClose }) {
             {multi ? ` · also under: ${multi.map(titleCase).join(', ')}` : ''}
           </div>
 
-          {/* All Domains Assigned to this Agent */}
+          {/* Interactive Multi-Select Domains Assigned to this Agent */}
           {agentDomains.length > 0 && (
-            <div className="flex items-center gap-1.5 flex-wrap mt-2.5">
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                Domains ({agentDomains.length}):
-              </span>
+            <div className="flex items-center gap-2 flex-wrap mt-3 pt-2.5 border-t border-slate-100">
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Filter size={12} className="text-slate-400" />
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  Domains ({agentDomains.length}):
+                </span>
+              </div>
               <div className="flex items-center gap-1.5 flex-wrap">
-                {agentDomains.map((dom) => (
-                  <span
-                    key={dom.name}
-                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-slate-100/90 border border-slate-200/80 text-slate-800 text-[11.5px] font-medium shadow-2xs"
-                  >
-                    <span className={`w-1.5 h-1.5 rounded-full ${DOMAIN_DOT_COLORS[dom.name] || 'bg-slate-400'}`} />
-                    <span className="font-semibold text-slate-900">{dom.name}</span>
-                    <span className="text-slate-500 font-mono text-[10.5px]">({dom.cases})</span>
+                {/* All Domains Reset Chip */}
+                <button
+                  type="button"
+                  onClick={clearDomainFilter}
+                  title="Show all domains combined"
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11.5px] font-bold transition-all cursor-pointer ${
+                    selectedDomains.size === 0
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'bg-slate-100 hover:bg-slate-200/70 border border-slate-200 text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <span>All</span>
+                  <span className={`text-[10px] font-mono px-1 py-0.2 rounded ${
+                    selectedDomains.size === 0 ? 'bg-white/20 text-white font-bold' : 'bg-slate-200 text-slate-700'
+                  }`}>
+                    {totalAgentCases}
                   </span>
-                ))}
+                </button>
+
+                {/* Individual Domain Chips (Multi-Selectable) */}
+                {agentDomains.map((dom) => {
+                  const isSelected = selectedDomains.has(dom.name);
+                  return (
+                    <button
+                      type="button"
+                      key={dom.name}
+                      onClick={() => toggleDomain(dom.name)}
+                      title={`Filter by ${dom.name} (${dom.cases} cases). Tap to toggle.`}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11.5px] transition-all cursor-pointer select-none ${
+                        isSelected
+                          ? 'bg-gradient-to-r from-[#ff5e3a] to-[#ff3b30] text-white font-bold shadow-xs border border-transparent'
+                          : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:border-slate-300 font-medium'
+                      }`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                        isSelected ? 'bg-white ring-2 ring-white/30' : DOMAIN_DOT_COLORS[dom.name] || 'bg-slate-400'
+                      }`} />
+                      <span className="truncate max-w-[130px]">{dom.name}</span>
+                      <span className={`text-[10px] font-mono px-1 py-0.2 rounded ${
+                        isSelected ? 'bg-white/20 text-white font-bold' : 'text-slate-400 bg-slate-100'
+                      }`}>
+                        {dom.cases}
+                      </span>
+                      {isSelected && <Check size={11} className="stroke-[2.5]" />}
+                    </button>
+                  );
+                })}
+
+                {/* Clear Active Filters Button */}
+                {selectedDomains.size > 0 && (
+                  <button
+                    type="button"
+                    onClick={clearDomainFilter}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-rose-200 transition-colors cursor-pointer ml-1"
+                  >
+                    <X size={11} />
+                    <span>Clear Filter ({selectedDomains.size})</span>
+                  </button>
+                )}
               </div>
             </div>
           )}

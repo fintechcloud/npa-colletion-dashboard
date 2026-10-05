@@ -121,8 +121,11 @@ export function pctBand(p) {
   return p >= 80 ? 'good' : p >= 65 ? 'mid' : 'low';
 }
 
-export function filterRows({ domain = '', leader = '', agent = '', type = '', from = '', to = '', state = '' } = {}) {
+export function filterRows({ domain = '', domains = [], leader = '', agent = '', type = '', from = '', to = '', state = '' } = {}) {
   const domainI = domain && domain !== 'All Domains' ? DOMAINS.indexOf(domain) : -1;
+  const domainIndices = Array.isArray(domains) && domains.length > 0
+    ? new Set(domains.map((d) => DOMAINS.indexOf(d)).filter((idx) => idx >= 0))
+    : null;
   const leaderI = leader ? LEADERS.indexOf(leader) : -1;
   const agentI = agent ? AGENTS.indexOf(agent) : -1;
   const typeI = type ? TYPES.indexOf(type) : -1;
@@ -130,6 +133,7 @@ export function filterRows({ domain = '', leader = '', agent = '', type = '', fr
   const fromOff = from ? dateToOffset(from) : -Infinity;
   const toOff = to ? dateToOffset(to) : Infinity;
   return CASES.filter((r) => {
+    if (domainIndices && domainIndices.size > 0 && r[8] !== undefined && !domainIndices.has(r[8])) return false;
     if (domainI >= 0 && r[8] !== undefined && r[8] !== domainI) return false;
     if (leaderI >= 0 && r[1] !== leaderI) return false;
     if (agentI >= 0 && r[0] !== agentI) return false;

@@ -158,57 +158,80 @@ export function getTodayStrIST() {
   return formatter.format(new Date());
 }
 
-export function parseDayFirstDate(dateStr) {
+export function parseDayFirstDate(dateStr, monthContextStr = '') {
   if (dateStr === null || dateStr === undefined || dateStr === '') return null;
+
+  let yearFromContext = null;
+  if (monthContextStr) {
+    const ym = String(monthContextStr).match(/20\d{2}/);
+    if (ym) yearFromContext = parseInt(ym[0], 10);
+  }
 
   // Handle Excel / Google Sheets serial date number
   if (typeof dateStr === 'number') {
-    if (dateStr > 20000 && dateStr < 80000) {
+    // Valid Excel serial dates between 2017 and 2031 are between 42000 and 50000
+    if (dateStr >= 42000 && dateStr <= 50000) {
       const d = new Date(Math.round((dateStr - 25569) * 86400 * 1000));
       return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
     }
+    return null; // Ignore numbers outside serial date range (e.g. loan amounts like 25000 mistakenly placed in date column)
   }
 
   const s = String(dateStr).trim();
   if (!s) return null;
 
-  // Handle standard ISO YYYY-MM-DD
+  // 1. Handle dates with day and month without year (e.g. "10-Jun", "02-Jul", "30Jan", "1-May")
+  const noYearMatch = s.match(/^(\d{1,2})[-\s/]*([A-Za-z]+)$/);
+  if (noYearMatch) {
+    const day = parseInt(noYearMatch[1], 10);
+    const monStr = noYearMatch[2].toLowerCase().slice(0, 3);
+    const month = MONTH_MAP[monStr];
+    if (month !== undefined && !Number.isNaN(day)) {
+      const year = yearFromContext || 2026;
+      return new Date(Date.UTC(year, month, day));
+    }
+  }
+
+  // 2. Handle standard ISO YYYY-MM-DD
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
     const parts = s.split(/[-T ]/);
     return new Date(Date.UTC(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10)));
   }
 
-  // Handle DD Mon YYYY or DD-Mon-YYYY (e.g. "24 Sep 2026", "24-Sep-2026", "24 September 2026")
-  const monMatch = s.match(/^(\d{1,2})[-\s/]+([A-Za-z]+)[-\s/]+(\d{4})/);
+  // 3. Handle DD Mon YYYY or DD-Mon-YYYY (e.g. "24 Sep 2026", "24-Sep-2026", "24 September 2026", "5-Nov-2025")
+  const monMatch = s.match(/^(\d{1,2})[-\s/]+([A-Za-z]+)[-\s/]+(\d{2,4})/);
   if (monMatch) {
     const day = parseInt(monMatch[1], 10);
     const monStr = monMatch[2].toLowerCase();
     const month = MONTH_MAP[monStr] !== undefined ? MONTH_MAP[monStr] : MONTH_MAP[monStr.slice(0, 3)];
-    const year = parseInt(monMatch[3], 10);
+    let year = parseInt(monMatch[3], 10);
+    if (year < 100) year += 2000;
     if (month !== undefined && !Number.isNaN(day) && !Number.isNaN(year)) {
       return new Date(Date.UTC(year, month, day));
     }
   }
 
-  // Handle Mon DD, YYYY or Mon DD YYYY (e.g. "Sep 24, 2026")
-  const monMatch2 = s.match(/^([A-Za-z]+)[-\s/]+(\d{1,2}),?[-\s/]+(\d{4})/);
+  // 4. Handle Mon DD, YYYY or Mon DD YYYY (e.g. "Sep 24, 2026")
+  const monMatch2 = s.match(/^([A-Za-z]+)[-\s/]+(\d{1,2}),?[-\s/]+(\d{2,4})/);
   if (monMatch2) {
     const monStr = monMatch2[1].toLowerCase();
     const day = parseInt(monMatch2[2], 10);
-    const year = parseInt(monMatch2[3], 10);
+    let year = parseInt(monMatch2[3], 10);
+    if (year < 100) year += 2000;
     const month = MONTH_MAP[monStr] !== undefined ? MONTH_MAP[monStr] : MONTH_MAP[monStr.slice(0, 3)];
     if (month !== undefined && !Number.isNaN(day) && !Number.isNaN(year)) {
       return new Date(Date.UTC(year, month, day));
     }
   }
 
-  // Handle DD-MM-YYYY or DD/MM/YYYY
+  // 5. Handle DD-MM-YYYY or DD/MM/YYYY or DD-MM-YY
   const parts = s.split(/[-/]/);
   if (parts.length >= 3) {
-    if (parts[2].length === 4) {
+    if (parts[2].length === 4 || parts[2].length === 2) {
       const day = parseInt(parts[0], 10);
       const month = parseInt(parts[1], 10);
-      const year = parseInt(parts[2], 10);
+      let year = parseInt(parts[2], 10);
+      if (year < 100) year += 2000;
       if (!Number.isNaN(day) && !Number.isNaN(month) && !Number.isNaN(year)) {
         return new Date(Date.UTC(year, month - 1, day));
       }
@@ -223,7 +246,13 @@ export function parseDayFirstDate(dateStr) {
   // Fallback: parse via new Date(s)
   const parsed = new Date(s);
   if (!Number.isNaN(parsed.getTime())) {
-    return new Date(Date.UTC(parsed.getFullYear(), parsed.getMonth(), parsed.getDate()));
+    let yr = parsed.getFullYear();
+    if ((yr === 2001 || yr < 2015) && yearFromContext) {
+      yr = yearFromContext;
+    } else if (yr === 2001 || yr < 2015) {
+      yr = 2026;
+    }
+    return new Date(Date.UTC(yr, parsed.getMonth(), parsed.getDate()));
   }
   return null;
 }
@@ -272,7 +301,7 @@ function cleanRecords(masterRecords, dailyRecords = []) {
   for (const t of (dailyRecords || [])) {
     const loanNo = String(t['LOAN NO'] || t['LOAN NO.'] || t['Loan No'] || '').trim();
     const amt = cleanRecvd(t['RECD AMT.'] || t['RECD AMT'] || t['TOTAL RCV'] || t['Total Recvd']) || 0;
-    const rcvDate = parseDayFirstDate(t['RECD DATE'] || t['RCV DATE'] || t['Payment Date']);
+    const rcvDate = parseDayFirstDate(t['RECD DATE'] || t['RCV DATE'] || t['Payment Date'], t['RECD MONTH'] || t['MONTH'] || '');
     const status = String(t['MODE'] || t['STATUS'] || 'RECD').trim().toUpperCase();
 
     if (loanNo && amt > 0 && rcvDate) {
@@ -305,11 +334,11 @@ function cleanRecords(masterRecords, dailyRecords = []) {
     const dueAmt = cleanRecvd(r['REPAY AMT'] || r['Repay Amt'] || r['Loan Repay Amount'] || r['ACT_RP']) || 0;
     let recvdAmt = cleanRecvd(r['RECD AMT.'] || r['RECD AMT'] || r['Total Recvd'] || r['TOTAL COLLECTION']) || 0;
 
-    let repayDate = parseDayFirstDate(r['REPAY DATE'] || r['Repayment Date']);
     const repayMonth = String(r['REPAY MONTH'] || r['Repay Month'] || '').trim();
+    let repayDate = parseDayFirstDate(r['REPAY DATE'] || r['Repayment Date'], repayMonth);
 
-    let recDate = parseDayFirstDate(r['RECD DATE'] || r['Rec Date'] || r['LP DATE']);
     const recMonth = String(r['RECD MONTH'] || r['Rec Month'] || '').trim();
+    let recDate = parseDayFirstDate(r['RECD DATE'] || r['Rec Date'] || r['LP DATE'], recMonth);
 
     // Check daily txs if present
     const txs = dailyTxsMap.get(loanNo);
@@ -341,7 +370,26 @@ function cleanRecords(masterRecords, dailyRecords = []) {
     else currentStatus = 'PART-PAYMENT';
 
     if (!repayDate || !(repayDate instanceof Date) || Number.isNaN(repayDate.getTime())) {
-      repayDate = recDate || new Date();
+      if (repayMonth) {
+        const monMatch = repayMonth.match(/([A-Za-z]+)\s*(\d{4})/);
+        if (monMatch) {
+          const mIdx = MONTH_MAP[monMatch[1].toLowerCase().slice(0, 3)];
+          const yr = parseInt(monMatch[2], 10);
+          if (mIdx !== undefined && !Number.isNaN(yr)) {
+            repayDate = new Date(Date.UTC(yr, mIdx, 1));
+          }
+        }
+      }
+      if (!repayDate || Number.isNaN(repayDate.getTime())) {
+        repayDate = recDate || new Date();
+      }
+    }
+
+    if (repayDate && repayDate.getUTCFullYear() < 2015) {
+      repayDate = new Date(Date.UTC(2026, repayDate.getUTCMonth(), repayDate.getUTCDate()));
+    }
+    if (recDate && recDate.getUTCFullYear() < 2015) {
+      recDate = new Date(Date.UTC(2026, recDate.getUTCMonth(), recDate.getUTCDate()));
     }
 
     const stateIdx = assignStateIdx(mobile, currentStatus);
