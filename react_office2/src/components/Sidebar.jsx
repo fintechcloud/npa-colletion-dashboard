@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { LayoutGrid, Users, UserCircle2, Sparkles, MapPin, Award, TrendingUp } from 'lucide-react';
-import { META, fmtDateShort } from '../utils/data';
+import { META, TODAY_STR, fmtDateShort } from '../utils/data';
 
 const SECTIONS = [
   {
@@ -28,6 +28,7 @@ const SECTIONS = [
 ];
 
 export default function Sidebar({ page, setPage }) {
+  const todayFormatted = fmtDateShort(META.today || TODAY_STR || new Date().toISOString().slice(0, 10));
   return (
     <aside className="w-64 shrink-0 h-screen sticky top-0 bg-white/85 backdrop-blur-2xl border-r border-slate-200/80 flex flex-col py-5 px-3.5 select-none z-30 shadow-[1px_0_10px_rgba(0,0,0,0.02)]">
       {/* Brand Header */}
@@ -109,7 +110,7 @@ export default function Sidebar({ page, setPage }) {
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               </div>
               <div className="text-[10.5px] text-slate-500 mt-0.5 leading-snug">
-                Data as of <span className="text-slate-700 font-semibold">{fmtDateShort(META.dateMax)}</span>
+                Data as of <span className="text-slate-700 font-semibold">Today ({todayFormatted})</span>
               </div>
             </div>
           </div>
