@@ -1,5 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
-import { Bell, Search, LayoutGrid, HelpCircle, LogOut, Shield, ChevronDown, CheckCircle2 } from 'lucide-react';
+import { Bell, Search, LayoutGrid, HelpCircle } from 'lucide-react';
 import { useAuth } from '../utils/auth';
 import { useLiveCollection } from '../context/LiveCollectionContext';
 import { fmtINR } from '../utils/data';
@@ -15,21 +14,8 @@ const TITLES = {
 
 export default function Topbar({ page }) {
   const [section, pageTitle] = TITLES[page] || ['Dashboard', 'Overview'];
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { totalLiveToday, totalLiveCases } = useLiveCollection();
-  const [showDropdown, setShowDropdown] = useState(false);
-  const dropdownRef = useRef(null);
-
-  // Close dropdown on click outside
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setShowDropdown(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   return (
     <header className="sticky top-0 z-20 bg-white/80 backdrop-blur-2xl border-b border-slate-200/80 px-8 py-3.5 flex items-center justify-between shadow-[0_1px_10px_rgba(0,0,0,0.02)]">
@@ -109,73 +95,24 @@ export default function Topbar({ page }) {
 
         <div className="h-5 w-[1px] bg-slate-200 mx-1" />
 
-        {/* Profile Avatar & Interactive Dropdown Menu */}
-        <div className="relative" ref={dropdownRef}>
-          <div
-            onClick={() => setShowDropdown((v) => !v)}
-            className="flex items-center gap-2.5 pl-1 cursor-pointer group select-none"
-          >
-            <div className="relative w-8 h-8 rounded-full bg-gradient-to-tr from-[#ff5e3a] to-[#ff3b30] border border-orange-200 flex items-center justify-center text-white font-bold text-[11.5px] shadow-sm overflow-hidden">
-              {user?.picture ? (
-                <img src={user.picture} alt={user?.name || 'User'} className="w-full h-full object-cover" />
-              ) : (
-                <span>{user?.avatar || 'CH'}</span>
-              )}
-              <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 border-2 border-white" />
+        {/* Profile Avatar / Executive Badge */}
+        <div className="flex items-center gap-2.5 pl-1 select-none">
+          <div className="relative w-8 h-8 rounded-full bg-gradient-to-tr from-[#ff5e3a] to-[#ff3b30] border border-orange-200 flex items-center justify-center text-white font-bold text-[11.5px] shadow-sm overflow-hidden">
+            {user?.picture ? (
+              <img src={user.picture} alt={user?.name || 'User'} className="w-full h-full object-cover" />
+            ) : (
+              <span>{user?.avatar || 'CH'}</span>
+            )}
+            <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 border-2 border-white" />
+          </div>
+          <div className="hidden lg:block leading-tight text-left">
+            <div className="text-[12px] font-bold text-slate-900 truncate max-w-[140px]">
+              {user?.name || 'Central Head'}
             </div>
-            <div className="hidden lg:block leading-tight text-left">
-              <div className="text-[12px] font-bold text-slate-900 group-hover:text-[#ff4d30] transition-colors flex items-center gap-1">
-                <span className="truncate max-w-[140px]">{user?.name || 'Central Head'}</span>
-                <ChevronDown size={11} className={`text-slate-400 transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
-              </div>
-              <div className="text-[10px] font-mono text-slate-400">
-                {user?.authProvider === 'google' ? 'Google SSO Account' : 'Fast Paisa Desk'}
-              </div>
+            <div className="text-[10px] font-mono text-slate-400">
+              Operations Desk
             </div>
           </div>
-
-          {/* Clean Executive Dropdown */}
-          {showDropdown && (
-            <div className="absolute right-0 mt-3 w-64 rounded-2xl bg-white border border-slate-200 shadow-2xl p-3 text-slate-700 z-50 animate-fade-in-up">
-              {/* User Header */}
-              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 mb-2 space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-[13px] font-bold text-slate-900 font-display truncate max-w-[150px]">
-                    {user?.name || 'Central Head'}
-                  </span>
-                  <span className="text-[9.5px] font-mono px-1.5 py-0.2 rounded-md bg-amber-50 text-amber-700 border border-amber-200 font-bold">
-                    {user?.authProvider === 'google' ? 'Google User' : 'Super Admin'}
-                  </span>
-                </div>
-                <div className="text-[11px] font-mono text-slate-500 truncate">
-                  {user?.email || 'admin@fastpaisa.com'}
-                </div>
-                <div className="text-[10px] text-slate-500 font-medium pt-1 border-t border-slate-200/60 flex items-center gap-1">
-                  <Shield size={11} className="text-emerald-600" />
-                  <span>Central Operations Desk</span>
-                </div>
-              </div>
-
-              {/* Status Indicator */}
-              <div className="px-2.5 py-1.5 text-[10.5px] font-mono text-emerald-700 flex items-center gap-1.5 border-b border-slate-100 mb-2">
-                <CheckCircle2 size={12} />
-                <span>Active Executive Session</span>
-              </div>
-
-              {/* Sign Out Action */}
-              <button
-                type="button"
-                onClick={() => {
-                  setShowDropdown(false);
-                  logout();
-                }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[12px] font-semibold text-rose-600 hover:bg-rose-50 border border-rose-200 transition-all cursor-pointer"
-              >
-                <LogOut size={14} className="text-rose-500" />
-                <span>Sign Out from Terminal</span>
-              </button>
-            </div>
-          )}
         </div>
       </div>
 
