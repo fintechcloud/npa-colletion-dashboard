@@ -202,8 +202,8 @@ export default function OverviewPage({ onOpenAgent }) {
         </div>
       </div>
 
-      {/* 4. Top 8 KPI Cards: Live NPA Portfolio Scope & Daily Recovery Performance */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-3.5">
+      {/* 4. Top 8 KPI Cards: 2 rows of 4 cards (Live & Daily Recovery, Scope & Performance) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         <KpiCard
           index={0}
           label="Today Live Collection"
