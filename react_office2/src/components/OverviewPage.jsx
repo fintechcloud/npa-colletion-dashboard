@@ -9,7 +9,6 @@ import {
 } from 'lucide-react';
 import FilterBar from './FilterBar';
 import KpiCard from './KpiCard';
-import GoogleSheetSyncModal from './GoogleSheetSyncModal';
 import DomainSwitcher from './DomainSwitcher';
 import DomainPortfolioTable from './DomainPortfolioTable';
 import CollectionTrendChart from './CollectionTrendChart';
@@ -24,7 +23,6 @@ import {
 export default function OverviewPage({ onOpenAgent }) {
   const { totalLiveToday, totalLiveCases } = useLiveCollection();
   const { selectedDomain } = useDomain();
-  const [showSyncModal, setShowSyncModal] = useState(false);
   const [filters, setFilters] = useState({ leader: '', agent: '', type: '', from: '', to: '' });
 
   // Combined filters including active domain from DomainContext
@@ -386,9 +384,6 @@ export default function OverviewPage({ onOpenAgent }) {
           </BarChart>
         </ResponsiveContainer>
       </Panel>
-
-      {/* Google Sheet Live Sync Modal */}
-      <GoogleSheetSyncModal isOpen={showSyncModal} onClose={() => setShowSyncModal(false)} />
     </div>
   );
 }

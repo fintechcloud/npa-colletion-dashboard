@@ -3,7 +3,6 @@ import { Bell, Search, LayoutGrid, HelpCircle, LogOut, Shield, ChevronDown, Chec
 import { useAuth } from '../utils/auth';
 import { useLiveCollection } from '../context/LiveCollectionContext';
 import { fmtINR } from '../utils/data';
-import GoogleSheetSyncModal from './GoogleSheetSyncModal';
 
 const TITLES = {
   overview: ['Collections', 'Overview'],
@@ -19,7 +18,6 @@ export default function Topbar({ page }) {
   const { user, logout } = useAuth();
   const { totalLiveToday, totalLiveCases } = useLiveCollection();
   const [showDropdown, setShowDropdown] = useState(false);
-  const [showSyncModal, setShowSyncModal] = useState(false);
   const dropdownRef = useRef(null);
 
   // Close dropdown on click outside
@@ -58,18 +56,16 @@ export default function Topbar({ page }) {
 
       {/* Right User Actions */}
       <div className="flex items-center gap-3">
-        {/* Google Sheet Live Beacon & Sync Trigger */}
-        <button
-          type="button"
-          onClick={() => setShowSyncModal(true)}
-          title={`Google Sheet Live Stream: ${totalLiveCases} cases collected today. Click to manage Google Sheets connection.`}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-200/80 transition-all text-left cursor-pointer group shadow-xs"
+        {/* Google Sheet Live Beacon */}
+        <div
+          title={`Google Sheet Live Stream: ${totalLiveCases} cases collected today.`}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200/80 text-left select-none shadow-xs"
         >
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
           </span>
-          <span className="text-[11.5px] font-mono font-bold text-emerald-800 group-hover:text-emerald-900 flex items-center gap-1.5">
+          <span className="text-[11.5px] font-mono font-bold text-emerald-800 flex items-center gap-1.5">
             <span className="hidden sm:inline">Google Sheet</span>
             <span>Live</span>
             {totalLiveToday > 0 && (
@@ -78,7 +74,7 @@ export default function Topbar({ page }) {
               </span>
             )}
           </span>
-        </button>
+        </div>
 
         {/* 3-Minute Auto-Sync Indicator */}
         <div 
@@ -183,7 +179,6 @@ export default function Topbar({ page }) {
         </div>
       </div>
 
-      <GoogleSheetSyncModal isOpen={showSyncModal} onClose={() => setShowSyncModal(false)} />
     </header>
   );
 }
