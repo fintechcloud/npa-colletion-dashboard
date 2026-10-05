@@ -1,7 +1,8 @@
 import { useMemo, useState, useRef } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown, Search, X } from 'lucide-react';
 import { useDomain } from '../context/DomainContext';
-import { CASES, DOMAINS, META, fmtINR, fmtINRFull, round1 } from '../utils/data';
+import { useLiveCollection } from '../context/LiveCollectionContext';
+import { CASES, DOMAINS, META, TODAY_STR, YESTERDAY_STR, fmtINR, fmtINRFull, fmtDateShort, round1, dateToOffset } from '../utils/data';
 
 // Refined, tasteful status dot colors
 const DOMAIN_DOT_COLORS = {
@@ -35,6 +36,7 @@ const bandStyles = {
 
 export default function DomainPortfolioTable() {
   const { selectedDomain, setSelectedDomain, clearDomain, isDomainActive } = useDomain();
+  const { totalLiveToday, totalYesterday, todayDate, yesterdayDate } = useLiveCollection();
 
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState('due');
@@ -42,6 +44,11 @@ export default function DomainPortfolioTable() {
   const [showExact, setShowExact] = useState(false);
 
   const tableContainerRef = useRef(null);
+
+  const targetTodayStr = todayDate || META.today || TODAY_STR;
+  const targetYdayStr = yesterdayDate || YESTERDAY_STR;
+  const todayLabel = targetTodayStr ? fmtDateShort(targetTodayStr) : 'Today';
+  const ydayLabel = targetYdayStr ? fmtDateShort(targetYdayStr) : 'Yesterday';
 
   const toggleSort = (key) => {
     if (sortKey === key) {
@@ -55,11 +62,15 @@ export default function DomainPortfolioTable() {
   // Compute live breakdown for every domain
   const { allDomainsRow, rows } = useMemo(() => {
     const dNames = DOMAINS && DOMAINS.length > 0 ? DOMAINS : (META.domains || []);
+    const todayOff = targetTodayStr ? dateToOffset(targetTodayStr) : -9999;
+    const ydayOff = targetYdayStr ? dateToOffset(targetYdayStr) : -9999;
 
     let allDue = 0;
     let allRecvd = 0;
     let allPrincipal = 0;
     let allSep = 0;
+    let allToday = 0;
+    let allYesterday = 0;
     const allAgents = new Set();
     const allLeaders = new Set();
 
@@ -68,6 +79,8 @@ export default function DomainPortfolioTable() {
       let recvd = 0;
       let principal = 0;
       let sep2026Recvd = 0;
+      let todayLive = 0;
+      let yesterday = 0;
       const agentSet = new Set();
       const leaderSet = new Set();
 
@@ -82,6 +95,12 @@ export default function DomainPortfolioTable() {
           if (recMonth && String(recMonth).toLowerCase().includes('sep') && String(recMonth).includes('2026')) {
             sep2026Recvd += (r[6] || 0);
           }
+          if (r[13] === todayOff) {
+            todayLive += (r[6] || 0);
+          }
+          if (r[13] === ydayOff) {
+            yesterday += (r[6] || 0);
+          }
         }
       }
 
@@ -89,6 +108,8 @@ export default function DomainPortfolioTable() {
       allRecvd += recvd;
       allPrincipal += principal;
       allSep += sep2026Recvd;
+      allToday += todayLive;
+      allYesterday += yesterday;
       agentSet.forEach((a) => allAgents.add(a));
       leaderSet.forEach((l) => allLeaders.add(l));
 
@@ -106,6 +127,8 @@ export default function DomainPortfolioTable() {
         pending,
         principal,
         sep2026Recvd,
+        todayLive,
+        yesterday,
         pct,
         band,
         agents: agentSet.size,
@@ -124,6 +147,8 @@ export default function DomainPortfolioTable() {
       pending: allPending,
       principal: allPrincipal,
       sep2026Recvd: allSep,
+      todayLive: Math.max(allToday, totalLiveToday || 0),
+      yesterday: Math.max(allYesterday, totalYesterday || 0),
       pct: allPct,
       band: allPct >= 25 ? 'good' : allPct >= 15 ? 'mid' : 'low',
       agents: allAgents.size,
@@ -132,7 +157,7 @@ export default function DomainPortfolioTable() {
     };
 
     return { allDomainsRow: summaryRow, rows: domainList };
-  }, [CASES.length, DOMAINS]);
+  }, [CASES.length, DOMAINS, targetTodayStr, targetYdayStr, totalLiveToday, totalYesterday]);
 
   // Filtered & sorted domain rows
   const sortedRows = useMemo(() => {
@@ -149,6 +174,8 @@ export default function DomainPortfolioTable() {
     { key: 'cases', label: 'Cases', align: 'text-right' },
     { key: 'due', label: 'Total Due', align: 'text-right' },
     { key: 'pending', label: 'Remaining', align: 'text-right' },
+    { key: 'todayLive', label: `Today Live (${todayLabel})`, align: 'text-right' },
+    { key: 'yesterday', label: `Yesterday (${ydayLabel})`, align: 'text-right' },
     { key: 'sep2026Recvd', label: 'Last Mo (Sep)', align: 'text-right' },
     { key: 'recvd', label: 'Collected', align: 'text-right' },
     { key: 'principal', label: 'Disbursed', align: 'text-right' },
@@ -313,6 +340,21 @@ export default function DomainPortfolioTable() {
                 {formatMoney(allDomainsRow.pending)}
               </td>
 
+              {/* Today Live */}
+              <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-600 tabular-nums">
+                {allDomainsRow.todayLive > 0 ? (
+                  <span className="inline-flex items-center gap-1 justify-end">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    {formatMoney(allDomainsRow.todayLive)}
+                  </span>
+                ) : '₹0'}
+              </td>
+
+              {/* Yesterday */}
+              <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-800 tabular-nums">
+                {formatMoney(allDomainsRow.yesterday)}
+              </td>
+
               {/* Last Mo (Sep 2026) */}
               <td className="py-2.5 px-3 text-right font-mono text-slate-700 font-medium tabular-nums">
                 {formatMoney(allDomainsRow.sep2026Recvd)}
@@ -344,7 +386,7 @@ export default function DomainPortfolioTable() {
             {/* Individual Domain Rows */}
             {sortedRows.length === 0 ? (
               <tr>
-                <td colSpan={8} className="text-center py-8 text-slate-400 text-xs">
+                <td colSpan={10} className="text-center py-8 text-slate-400 text-xs">
                   No domains found matching "{search}"
                 </td>
               </tr>
@@ -390,6 +432,27 @@ export default function DomainPortfolioTable() {
                     {/* Remaining Pending */}
                     <td className="py-2.5 px-3 text-right font-mono text-slate-500 tabular-nums">
                       {formatMoney(d.pending)}
+                    </td>
+
+                    {/* Today Live */}
+                    <td className="py-2.5 px-3 text-right font-mono tabular-nums">
+                      {d.todayLive > 0 ? (
+                        <span className="text-emerald-700 font-bold inline-flex items-center gap-1 justify-end">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          {formatMoney(d.todayLive)}
+                        </span>
+                      ) : (
+                        <span className="text-slate-300 font-normal">—</span>
+                      )}
+                    </td>
+
+                    {/* Yesterday */}
+                    <td className="py-2.5 px-3 text-right font-mono tabular-nums">
+                      {d.yesterday > 0 ? (
+                        <span className="text-slate-800 font-semibold">{formatMoney(d.yesterday)}</span>
+                      ) : (
+                        <span className="text-slate-300 font-normal">—</span>
+                      )}
                     </td>
 
                     {/* Last Month (Sep 2026) Collection */}

@@ -267,8 +267,9 @@ export async function fetchLiveCollection() {
         }
       }
     }
-  } else if (masterRecords) {
-    // Fallback if DAILY RECD tab is empty: check MASTER for collections received today
+  }
+  // Fallback to MASTER tab if DAILY RECD did not yield today's records
+  if (totalLiveToday === 0 && masterRecords && masterRecords.length > 0) {
     for (const r of masterRecords) {
       const agent = String(r['AGENT NAME'] || r['Agent Name'] || r['Agent'] || '').trim().replace(/\b\w/g, (c) => c.toUpperCase());
       const leader = String(r['TEAM LEADER'] || r['Team Leader'] || 'OPERATIONS').trim().toUpperCase();
@@ -278,21 +279,66 @@ export async function fetchLiveCollection() {
       const lpDate = String(r['RECD DATE'] || r['LP DATE'] || '').trim();
       const amt = parseFloat(amtRaw) || 0;
 
-      if (agent && amt > 0) {
-        const isToday = lpDate ? todayPatterns.some((pat) => lpDate.startsWith(pat)) : false;
+      if (amt > 0) {
+        const isToday = lpDate ? todayPatterns.some((pat) => lpDate.startsWith(pat) || lpDate.toLowerCase().includes(pat.toLowerCase())) : false;
         if (isToday) {
           totalLiveToday += Math.round(amt);
           totalLiveCases += 1;
+          if (agent) {
+            if (!byAgent[agent]) byAgent[agent] = { agent, leader, liveRecvd: 0, liveCases: 0 };
+            byAgent[agent].liveRecvd += Math.round(amt);
+            byAgent[agent].liveCases += 1;
+          }
+          if (leader) {
+            if (!byLeader[leader]) byLeader[leader] = { leader, liveRecvd: 0, liveCases: 0, agentCount: 0 };
+            byLeader[leader].liveRecvd += Math.round(amt);
+            byLeader[leader].liveCases += 1;
+          }
+          if (recentTx.length < 25) {
+            recentTx.push({
+              id: `tx_${recentTx.length}`,
+              time: lpDate,
+              agent,
+              leader,
+              loanNo,
+              amount: Math.round(amt),
+              status,
+            });
+          }
         }
-        if (!byAgent[agent]) byAgent[agent] = { agent, leader, liveRecvd: 0, liveCases: 0 };
-        if (isToday) {
-          byAgent[agent].liveRecvd += Math.round(amt);
-          byAgent[agent].liveCases += 1;
-        }
-        if (!byLeader[leader]) byLeader[leader] = { leader, liveRecvd: 0, liveCases: 0, agentCount: 0 };
-        if (isToday) {
-          byLeader[leader].liveRecvd += Math.round(amt);
-          byLeader[leader].liveCases += 1;
+      }
+    }
+  }
+
+  // Calculate Yesterday collection from MASTER records based on RCV DATE
+  const yday = new Date(now.getTime() - 86400000);
+  const yd = pad(yday.getDate());
+  const ym = pad(yday.getMonth() + 1);
+  const yy = yday.getFullYear();
+  const ydayMonShort = monthNamesShort[yday.getMonth()];
+  const ydayDateStr = yday.toISOString().slice(0, 10);
+  const ydayPatterns = [
+    `${yd}/${ym}/${yy}`,
+    `${yd}-${ym}-${yy}`,
+    ydayDateStr,
+    `${yd}-${ydayMonShort}-${yy}`,
+    `${yd} ${ydayMonShort} ${yy}`,
+    `${Number(yd)}-${ydayMonShort}-${yy}`,
+    `${Number(yd)} ${ydayMonShort} ${yy}`,
+  ];
+  let totalYesterday = 0;
+  let totalYesterdayCases = 0;
+
+  if (masterRecords && masterRecords.length > 0) {
+    for (const r of masterRecords) {
+      const amtRaw = String(r['RECD AMT.'] || r['RECD AMT'] || r['TOTAL COLLECTION'] || 0).replace(/,/g, '').trim();
+      const lpDate = String(r['RECD DATE'] || r['LP DATE'] || '').trim();
+      const amt = parseFloat(amtRaw) || 0;
+      if (amt > 0) {
+        const isYday = lpDate ? ydayPatterns.some((pat) => lpDate.startsWith(pat) || lpDate.toLowerCase().includes(pat.toLowerCase())) : false;
+        if (isYday) {
+          totalYesterday += Math.round(amt);
+          totalYesterdayCases += 1;
         }
       }
     }
@@ -315,6 +361,9 @@ export async function fetchLiveCollection() {
     todayDate: todayStr,
     totalLiveToday,
     totalLiveCases,
+    yesterdayDate: ydayDateStr,
+    totalYesterday,
+    totalYesterdayCases,
     byAgent,
     byLeader,
     recentTransactions: recentTx,

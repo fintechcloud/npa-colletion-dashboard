@@ -5,7 +5,7 @@ import {
 } from 'recharts';
 import {
   Wallet, AlertTriangle, TrendingUp, Clock, Users, Layers,
-  AlertCircle, FileSpreadsheet, CheckCircle2, Building2,
+  AlertCircle, FileSpreadsheet, CheckCircle2, Building2, Radio, Calendar,
 } from 'lucide-react';
 import FilterBar from './FilterBar';
 import KpiCard from './KpiCard';
@@ -17,11 +17,18 @@ import { useDomain } from '../context/DomainContext';
 import {
   filterRows, aggregate, STATUSES, STATUS_COLORS, DOMAINS, MODES, MODE_COLORS,
   TODAY_STR, YESTERDAY_STR, AGENTS, CASES, META,
-  fmtINR, fmtINRFull, fmtDateShort, fmtMonth, titleCase, DOMAIN_DOT_COLORS,
+  fmtINR, fmtINRFull, fmtDateShort, fmtMonth, titleCase, DOMAIN_DOT_COLORS, dateToOffset,
 } from '../utils/data';
 
 export default function OverviewPage({ onOpenAgent }) {
-  const { totalLiveToday, totalLiveCases } = useLiveCollection();
+  const {
+    totalLiveToday,
+    totalLiveCases,
+    totalYesterday,
+    totalYesterdayCases,
+    todayDate,
+    yesterdayDate,
+  } = useLiveCollection();
   const { selectedDomain } = useDomain();
   const [filters, setFilters] = useState({ leader: '', agent: '', type: '', from: '', to: '' });
 
@@ -56,40 +63,58 @@ export default function OverviewPage({ onOpenAgent }) {
 
   const mtdAgg = useMemo(() => aggregate(mtdRows), [mtdRows]);
 
-  // Dynamic Yesterday Due Cases
+  const targetTodayStr = todayDate || TODAY_STR;
+  const targetYdayStr = yesterdayDate || YESTERDAY_STR;
+
+  const todayDateLabel = useMemo(() => {
+    return targetTodayStr ? fmtDateShort(targetTodayStr) : 'Today';
+  }, [targetTodayStr]);
+
   const ydayDateLabel = useMemo(() => {
-    return YESTERDAY_STR ? fmtDateShort(YESTERDAY_STR) : 'Yesterday';
-  }, []);
+    return targetYdayStr ? fmtDateShort(targetYdayStr) : 'Yesterday';
+  }, [targetYdayStr]);
 
-  const ydayDueRows = useMemo(() => {
-    if (!YESTERDAY_STR) return [];
-    return filterRows({
-      ...activeFilters,
-      from: YESTERDAY_STR,
-      to: YESTERDAY_STR,
+  // Compute Today Live & Yesterday Collections working directly on RCV DATE (r[13] = recDayOffset)
+  const { todayLiveAmount, todayLiveCasesCount, yesterdayAmount, yesterdayCasesCount } = useMemo(() => {
+    const todayOff = targetTodayStr ? dateToOffset(targetTodayStr) : -9999;
+    const ydayOff = targetYdayStr ? dateToOffset(targetYdayStr) : -9999;
+
+    let tAmt = 0;
+    let tCases = 0;
+    let yAmt = 0;
+    let yCases = 0;
+
+    rows.forEach((r) => {
+      const recOff = r[13]; // recDayOffset
+      const rv = r[6] || 0;
+      if (recOff === todayOff && rv > 0) {
+        tAmt += rv;
+        tCases++;
+      }
+      if (recOff === ydayOff && rv > 0) {
+        yAmt += rv;
+        yCases++;
+      }
     });
-  }, [activeFilters]);
 
-  const ydayDueAgg = useMemo(() => aggregate(ydayDueRows), [ydayDueRows]);
-  const ydayDueTotal = useMemo(() => {
-    return (META.daywiseDueByDate && META.daywiseDueByDate[YESTERDAY_STR])
-      ? META.daywiseDueByDate[YESTERDAY_STR]
-      : ydayDueAgg.due;
-  }, [ydayDueAgg.due]);
-  const ydayDuePct = useMemo(() => {
-    return ydayDueTotal > 0 ? (ydayDueAgg.recvd / ydayDueTotal) * 100 : ydayDueAgg.pct;
-  }, [ydayDueTotal, ydayDueAgg.recvd, ydayDueAgg.pct]);
+    const isFiltered = Boolean(selectedDomain && selectedDomain !== 'All Domains');
+    const actualToday = META.actualCollectionByDate ? META.actualCollectionByDate[targetTodayStr] : null;
+    const actualYday = META.actualCollectionByDate ? META.actualCollectionByDate[targetYdayStr] : null;
+
+    const finalTodayAmt = isFiltered ? tAmt : Math.max(tAmt, totalLiveToday || 0, actualToday?.amount || 0);
+    const finalTodayCases = isFiltered ? tCases : Math.max(tCases, totalLiveCases || 0, actualToday?.cases || 0);
+    const finalYdayAmt = isFiltered ? yAmt : Math.max(yAmt, totalYesterday || 0, actualYday?.amount || 0);
+    const finalYdayCases = isFiltered ? yCases : Math.max(yCases, totalYesterdayCases || 0, actualYday?.cases || 0);
+
+    return {
+      todayLiveAmount: finalTodayAmt,
+      todayLiveCasesCount: finalTodayCases,
+      yesterdayAmount: finalYdayAmt,
+      yesterdayCasesCount: finalYdayCases,
+    };
+  }, [rows, selectedDomain, targetTodayStr, targetYdayStr, totalLiveToday, totalLiveCases, totalYesterday, totalYesterdayCases]);
 
   const remaining = agg.due - agg.recvd;
-  const ydayRow = agg.daily.find((d) => d.date === YESTERDAY_STR);
-  const actualYday = META.actualCollectionByDate ? META.actualCollectionByDate[YESTERDAY_STR] : null;
-  const ydayAmount = typeof actualYday === 'object' && actualYday !== null
-    ? (actualYday.amount ?? 0)
-    : (typeof actualYday === 'number' ? actualYday : (ydayRow ? ydayRow.recvd : 0));
-  const ydayCases = typeof actualYday === 'object' && actualYday !== null
-    ? (actualYday.cases ?? (ydayRow ? ydayRow.cases : 0))
-    : (ydayRow ? ydayRow.cases : 0);
-  const ydayBasis = actualYday ? 'actual payment date' : 'due date, approx';
 
   const monthlyChartData = useMemo(() => agg.monthly.map((m) => ({ ...m, label: fmtMonth(m.month) })), [agg.monthly]);
 
@@ -177,10 +202,30 @@ export default function OverviewPage({ onOpenAgent }) {
         </div>
       </div>
 
-      {/* 4. Top 6 KPI Cards: NPA Portfolio Scope & Performance */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5">
+      {/* 4. Top 8 KPI Cards: Live NPA Portfolio Scope & Daily Recovery Performance */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-3.5">
         <KpiCard
           index={0}
+          label="Today Live Collection"
+          raw={todayLiveAmount}
+          format={fmtINR}
+          sub={`${todayLiveCasesCount} cases collected`}
+          dateRange={`RCV: ${todayDateLabel}`}
+          icon={Radio}
+          tone="live"
+        />
+        <KpiCard
+          index={1}
+          label="Yesterday Total Collection"
+          raw={yesterdayAmount}
+          format={fmtINR}
+          sub={`${yesterdayCasesCount} cases collected`}
+          dateRange={`RCV: ${ydayDateLabel}`}
+          icon={Calendar}
+          tone="brand"
+        />
+        <KpiCard
+          index={2}
           label="Total NPA Recovered"
           raw={agg.recvd}
           format={fmtINR}
@@ -189,7 +234,7 @@ export default function OverviewPage({ onOpenAgent }) {
           tone="brand"
         />
         <KpiCard
-          index={1}
+          index={3}
           label="Total Repayment Due"
           raw={agg.due}
           format={fmtINR}
@@ -198,7 +243,7 @@ export default function OverviewPage({ onOpenAgent }) {
           tone="warn"
         />
         <KpiCard
-          index={2}
+          index={4}
           label="Total Disbursed Principal"
           raw={agg.principal}
           format={fmtINR}
@@ -207,7 +252,7 @@ export default function OverviewPage({ onOpenAgent }) {
           tone="neutral"
         />
         <KpiCard
-          index={3}
+          index={5}
           label="Active NPA Cases"
           raw={agg.cases}
           format={(v) => Math.round(v).toLocaleString('en-IN')}
@@ -216,7 +261,7 @@ export default function OverviewPage({ onOpenAgent }) {
           tone="neutral"
         />
         <KpiCard
-          index={4}
+          index={6}
           label="Settled vs Part-Payment"
           raw={agg.modeCount?.['PART-PAYMENT'] || 0}
           format={() => `${(agg.modeCount?.['PART-PAYMENT'] || 0).toLocaleString('en-IN')} Part / ${(agg.modeCount?.['SETTLED'] || 0).toLocaleString('en-IN')} Settled`}
@@ -225,7 +270,7 @@ export default function OverviewPage({ onOpenAgent }) {
           tone="live"
         />
         <KpiCard
-          index={5}
+          index={7}
           label="Latest Month Recovery (Sep 2026)"
           raw={agg.sep2026Recvd}
           format={fmtINR}
