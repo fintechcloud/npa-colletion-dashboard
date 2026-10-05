@@ -21,6 +21,19 @@ app.use(
 
 app.use(express.json());
 
+app.get('/', (req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'Fast Paisa NPA Collection Backend API',
+    endpoints: {
+      health: '/health',
+      dashboardData: '/api/dashboard-data',
+      liveCollection: '/api/live-collection',
+    },
+    timestamp: new Date().toISOString(),
+  });
+});
+
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', runtime: 'node-express', timestamp: new Date().toISOString() });
 });
