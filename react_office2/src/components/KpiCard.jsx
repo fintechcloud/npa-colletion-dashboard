@@ -13,6 +13,7 @@ export default function KpiCard({
   index = 0,
   trend,
   onClick,
+  valueClassName = '',
 }) {
   const toneMap = {
     default: {
@@ -87,7 +88,7 @@ export default function KpiCard({
 
       {/* Main Metric Value */}
       <div className="mt-3">
-        <div className="text-[23px] sm:text-[25px] xl:text-[26px] font-bold text-slate-900 tracking-tight font-display leading-tight truncate">
+        <div className={`font-bold text-slate-900 tracking-tight font-display leading-tight truncate ${valueClassName || 'text-[23px] sm:text-[25px] xl:text-[26px]'}`}>
           {raw !== undefined ? <AnimatedNumber value={raw} format={format} /> : value}
         </div>
 

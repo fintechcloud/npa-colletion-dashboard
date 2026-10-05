@@ -264,10 +264,11 @@ export default function OverviewPage({ onOpenAgent }) {
           index={6}
           label="Settled vs Part-Payment"
           raw={agg.modeCount?.['PART-PAYMENT'] || 0}
-          format={() => `${(agg.modeCount?.['PART-PAYMENT'] || 0).toLocaleString('en-IN')} Part / ${(agg.modeCount?.['SETTLED'] || 0).toLocaleString('en-IN')} Settled`}
+          format={() => `${(agg.modeCount?.['PART-PAYMENT'] || 0).toLocaleString('en-IN')} Part · ${(agg.modeCount?.['SETTLED'] || 0).toLocaleString('en-IN')} Settled`}
           sub={`${(agg.modeCount?.['CLOSED'] || 0).toLocaleString('en-IN')} Closed · ${(agg.modeCount?.['SETTLED ON DISBURSAL'] || 0).toLocaleString('en-IN')} Disbursal`}
           icon={CheckCircle2}
           tone="live"
+          valueClassName="text-[17px] sm:text-[18px] xl:text-[19px]"
         />
         <KpiCard
           index={7}
