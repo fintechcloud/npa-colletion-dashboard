@@ -1,4 +1,4 @@
-import { Bell, Search, LayoutGrid, HelpCircle } from 'lucide-react';
+import { Bell, LayoutGrid, HelpCircle } from 'lucide-react';
 import { useAuth } from '../utils/auth';
 import { useLiveCollection } from '../context/LiveCollectionContext';
 import { fmtINR } from '../utils/data';
@@ -24,20 +24,6 @@ export default function Topbar({ page }) {
         <span className="text-slate-400 font-medium">{section}</span>
         <span className="text-slate-300">/</span>
         <span className="text-slate-900 font-bold tracking-tight font-display text-[14px]">{pageTitle}</span>
-      </div>
-
-      {/* Floating Pill Search Bar matching executive styling */}
-      <div className="hidden md:flex items-center gap-2.5 bg-slate-100 hover:bg-slate-200/60 border border-slate-200 focus-within:border-[#ff3b30]/50 rounded-full px-4 py-1.5 w-80 transition-all shadow-inner">
-        <Search size={14} className="text-slate-400 shrink-0" />
-        <input
-          type="text"
-          placeholder="Search or type command"
-          className="bg-transparent text-[12.5px] text-slate-800 placeholder-slate-400 outline-none w-full"
-        />
-        <div className="flex items-center gap-1 shrink-0">
-          <kbd className="px-1.5 py-0.5 text-[10px] font-mono text-slate-500 bg-white border border-slate-200 rounded shadow-xs">⌘</kbd>
-          <kbd className="px-1.5 py-0.5 text-[10px] font-mono text-slate-500 bg-white border border-slate-200 rounded shadow-xs">K</kbd>
-        </div>
       </div>
 
       {/* Right User Actions */}
