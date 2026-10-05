@@ -284,6 +284,22 @@ export function getAgentDomainsDetailed(agentName) {
   return Object.values(map).sort((a, b) => b.cases - a.cases);
 }
 
+export function getLeaderDomainsDetailed(leaderName) {
+  const leaderI = LEADERS.indexOf(leaderName);
+  if (leaderI < 0) return [];
+  const map = {};
+  for (const r of CASES) {
+    if (r[1] === leaderI && r[8] !== undefined && DOMAINS[r[8]]) {
+      const dName = DOMAINS[r[8]];
+      if (!map[dName]) map[dName] = { name: dName, cases: 0, due: 0, recvd: 0 };
+      map[dName].cases++;
+      map[dName].due += (r[5] || 0);
+      map[dName].recvd += (r[6] || 0);
+    }
+  }
+  return Object.values(map).sort((a, b) => b.cases - a.cases);
+}
+
 export function computeEmployeeRows(filters, liveAgentMap = {}) {
   const rows = filterRows(filters);
   const byAgent = {};
