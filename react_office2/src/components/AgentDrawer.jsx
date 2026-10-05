@@ -9,13 +9,15 @@ import {
 } from 'recharts';
 import {
   filterRows, aggregate, STATUSES, STATUS_COLORS, YESTERDAY_STR, META,
-  fmtINR, fmtINRFull, fmtDateShort, fmtMonth, titleCase, round1
+  fmtINR, fmtINRFull, fmtDateShort, fmtMonth, titleCase, round1,
+  getAgentDomainsDetailed, DOMAIN_DOT_COLORS,
 } from '../utils/data';
 import { useLiveCollection } from '../context/LiveCollectionContext';
 
 export default function AgentDrawer({ name, onClose }) {
   const { getAgentLive } = useLiveCollection();
   const agentLive = useMemo(() => getAgentLive(name), [getAgentLive, name]);
+  const agentDomains = useMemo(() => getAgentDomainsDetailed(name), [name]);
   const [isMaximized, setIsMaximized] = useState(true);
 
   // Date filter state: 'overall' | 'month' | 'custom'
@@ -218,18 +220,40 @@ export default function AgentDrawer({ name, onClose }) {
   return (
     <Drawer onClose={onClose} isMaximized={isMaximized}>
       {/* Drawer Header */}
-      <div className="flex items-start justify-between mb-5 pb-4 border-b border-white/[0.06]">
+      <div className="flex items-start justify-between mb-5 pb-4 border-b border-slate-100">
         <div>
           <div className="flex items-center gap-2.5 flex-wrap">
-            <h2 className="text-[24px] font-black text-white font-display tracking-tight">{name}</h2>
-            <span className="text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-white/[0.08] text-zinc-300 border border-white/[0.08]">
+            <h2 className="text-[24px] font-black text-slate-900 font-display tracking-tight">{name}</h2>
+            <span className="text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
               Collection Agent Dossier
             </span>
           </div>
-          <div className="text-[12.5px] font-medium text-zinc-400 mt-1">
-            Leader: <span className="text-zinc-200 font-semibold">{titleCase(leader)}</span>
+
+          <div className="text-[12.5px] font-medium text-slate-500 mt-1">
+            Leader: <span className="text-slate-800 font-semibold">{titleCase(leader)}</span>
             {multi ? ` · also under: ${multi.map(titleCase).join(', ')}` : ''}
           </div>
+
+          {/* All Domains Assigned to this Agent */}
+          {agentDomains.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap mt-2.5">
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                Domains ({agentDomains.length}):
+              </span>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {agentDomains.map((dom) => (
+                  <span
+                    key={dom.name}
+                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-slate-100/90 border border-slate-200/80 text-slate-800 text-[11.5px] font-medium shadow-2xs"
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${DOMAIN_DOT_COLORS[dom.name] || 'bg-slate-400'}`} />
+                    <span className="font-semibold text-slate-900">{dom.name}</span>
+                    <span className="text-slate-500 font-mono text-[10.5px]">({dom.cases})</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -238,7 +262,7 @@ export default function AgentDrawer({ name, onClose }) {
             type="button"
             onClick={() => setIsMaximized((v) => !v)}
             title={isMaximized ? 'Exit Full Screen (Drawer Mode)' : 'Expand to Full Screen'}
-            className="w-8 h-8 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] flex items-center justify-center text-zinc-400 hover:text-white transition-all cursor-pointer"
+            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200/70 border border-slate-200 flex items-center justify-center text-slate-600 hover:text-slate-900 transition-all cursor-pointer"
           >
             {isMaximized ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
           </button>
@@ -247,7 +271,7 @@ export default function AgentDrawer({ name, onClose }) {
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] flex items-center justify-center text-zinc-400 hover:text-white transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200/70 border border-slate-200 flex items-center justify-center text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
           >
             <X size={15} />
           </button>
@@ -255,14 +279,14 @@ export default function AgentDrawer({ name, onClose }) {
       </div>
 
       {/* Date Filter Toolbar */}
-      <div className="bg-[#141520] border border-white/[0.07] rounded-2xl p-3.5 mb-6 space-y-2.5 shadow-lg">
+      <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-3.5 mb-6 space-y-2.5 shadow-xs">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-1.5">
-            <CalendarDays size={14} className="text-[#ff5533]" />
-            <span className="text-[12px] font-bold text-zinc-300 font-display">Date Filter:</span>
+            <CalendarDays size={14} className="text-[#ff4d30]" />
+            <span className="text-[12px] font-bold text-slate-700 font-display">Date Filter:</span>
           </div>
 
-          <div className="flex bg-black/40 border border-white/[0.08] rounded-xl p-0.5 gap-0.5">
+          <div className="flex bg-slate-100 border border-slate-200 rounded-xl p-0.5 gap-0.5">
             <button
               onClick={() => {
                 setFilterMode('month');
@@ -270,8 +294,8 @@ export default function AgentDrawer({ name, onClose }) {
               }}
               className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
                 filterMode === 'month'
-                  ? 'bg-gradient-to-r from-[#ff5e3a] to-[#ff3b30] text-white shadow-[0_0_10px_rgba(255,59,48,0.4)]'
-                  : 'text-zinc-400 hover:text-zinc-200'
+                  ? 'bg-gradient-to-r from-[#ff5e3a] to-[#ff3b30] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               This Month
@@ -283,8 +307,8 @@ export default function AgentDrawer({ name, onClose }) {
               }}
               className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
                 filterMode === 'overall'
-                  ? 'bg-gradient-to-r from-[#ff5e3a] to-[#ff3b30] text-white shadow-[0_0_10px_rgba(255,59,48,0.4)]'
-                  : 'text-zinc-400 hover:text-zinc-200'
+                  ? 'bg-gradient-to-r from-[#ff5e3a] to-[#ff3b30] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               Overall
@@ -293,8 +317,8 @@ export default function AgentDrawer({ name, onClose }) {
               onClick={() => setFilterMode('custom')}
               className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
                 filterMode === 'custom'
-                  ? 'bg-gradient-to-r from-[#ff5e3a] to-[#ff3b30] text-white shadow-[0_0_10px_rgba(255,59,48,0.4)]'
-                  : 'text-zinc-400 hover:text-zinc-200'
+                  ? 'bg-gradient-to-r from-[#ff5e3a] to-[#ff3b30] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               Custom Range
@@ -303,18 +327,18 @@ export default function AgentDrawer({ name, onClose }) {
         </div>
 
         {/* Date scope label */}
-        <div className="flex items-center justify-between text-[11px] font-mono text-zinc-400 px-1">
+        <div className="flex items-center justify-between text-[11px] font-mono text-slate-500 px-1">
           <span>Active Period:</span>
           {filterMode === 'month' && (
-            <span className="text-[#ff5533] font-bold">{fmtMonth(latestMonthStr)} (Latest Ledger)</span>
+            <span className="text-[#ff4d30] font-bold">{fmtMonth(latestMonthStr)} (Latest Ledger)</span>
           )}
           {filterMode === 'overall' && (
-            <span className="text-zinc-300 font-medium">
+            <span className="text-slate-700 font-medium">
               Full Dataset ({fmtMonth(earliestMonthStr)} – {fmtMonth(latestMonthStr)})
             </span>
           )}
           {filterMode === 'custom' && (
-            <span className="text-zinc-300 font-medium">
+            <span className="text-slate-700 font-medium">
               {customFrom ? fmtDateShort(customFrom) : 'Start'} to {customTo ? fmtDateShort(customTo) : 'End'}
             </span>
           )}
@@ -322,30 +346,30 @@ export default function AgentDrawer({ name, onClose }) {
 
         {/* Custom Range Date Pickers */}
         {filterMode === 'custom' && (
-          <div className="flex items-center gap-2 pt-2.5 border-t border-white/[0.06] flex-wrap text-[11.5px] animate-fade-in-up">
-            <div className="flex items-center gap-2 bg-black/40 border border-white/[0.08] px-2.5 py-1.5 rounded-xl">
-              <Calendar size={13} className="text-[#ff5533]" />
-              <span className="text-zinc-400 text-[10.5px] uppercase font-bold">From</span>
+          <div className="flex items-center gap-2 pt-2.5 border-t border-slate-200 flex-wrap text-[11.5px] animate-fade-in-up">
+            <div className="flex items-center gap-2 bg-white border border-slate-200 px-2.5 py-1.5 rounded-xl shadow-xs">
+              <Calendar size={13} className="text-[#ff4d30]" />
+              <span className="text-slate-400 text-[10.5px] uppercase font-bold">From</span>
               <input
                 type="date"
                 value={customFrom}
                 min={META.dateMin}
                 max={META.dateMax}
                 onChange={(e) => setCustomFrom(e.target.value)}
-                className="bg-transparent text-white font-mono text-[11.5px] outline-none cursor-pointer"
+                className="bg-transparent text-slate-800 font-mono text-[11.5px] outline-none cursor-pointer"
               />
             </div>
-            <span className="text-zinc-500 font-bold">to</span>
-            <div className="flex items-center gap-2 bg-black/40 border border-white/[0.08] px-2.5 py-1.5 rounded-xl">
-              <Calendar size={13} className="text-[#ff5533]" />
-              <span className="text-zinc-400 text-[10.5px] uppercase font-bold">To</span>
+            <span className="text-slate-400 font-bold">to</span>
+            <div className="flex items-center gap-2 bg-white border border-slate-200 px-2.5 py-1.5 rounded-xl shadow-xs">
+              <Calendar size={13} className="text-[#ff4d30]" />
+              <span className="text-slate-400 text-[10.5px] uppercase font-bold">To</span>
               <input
                 type="date"
                 value={customTo}
                 min={META.dateMin}
                 max={META.dateMax}
                 onChange={(e) => setCustomTo(e.target.value)}
-                className="bg-transparent text-white font-mono text-[11.5px] outline-none cursor-pointer"
+                className="bg-transparent text-slate-800 font-mono text-[11.5px] outline-none cursor-pointer"
               />
             </div>
             {(customFrom || customTo) && (
@@ -354,7 +378,7 @@ export default function AgentDrawer({ name, onClose }) {
                   setCustomFrom('');
                   setCustomTo('');
                 }}
-                className="text-[11px] text-[#ff5533] hover:text-[#ff3b30] font-semibold ml-auto flex items-center gap-1 cursor-pointer"
+                className="text-[11px] text-[#ff4d30] hover:text-[#e6352b] font-semibold ml-auto flex items-center gap-1 cursor-pointer"
               >
                 Reset Dates
               </button>
@@ -396,19 +420,19 @@ export default function AgentDrawer({ name, onClose }) {
           {/* Case Status Distribution */}
           <div>
             <SectionLabel>Case Status Distribution</SectionLabel>
-            <div className="flex flex-col gap-2.5 bg-[#141520] border border-white/[0.06] rounded-2xl p-4 shadow-md">
+            <div className="flex flex-col gap-2.5 bg-slate-50 border border-slate-200/90 rounded-2xl p-4 shadow-xs">
               {STATUSES.map((s) => {
                 const c = agg.statusCount[s] || 0;
                 const pct = agg.cases ? Math.round((c / agg.cases) * 1000) / 10 : 0;
                 return (
                   <div key={s} className="flex items-center gap-2.5 text-[12px]">
                     <span
-                      className="w-2 h-2 rounded-full shrink-0 shadow-[0_0_6px_currentColor]"
+                      className="w-2 h-2 rounded-full shrink-0 shadow-xs"
                       style={{ background: STATUS_COLORS[s] || '#94a3b8', color: STATUS_COLORS[s] || '#94a3b8' }}
                     />
-                    <span className="flex-1 font-medium text-zinc-300">{titleCase(s)}</span>
-                    <span className="font-mono font-semibold text-white">{c.toLocaleString('en-IN')}</span>
-                    <span className="font-mono text-zinc-500 w-12 text-right">{pct}%</span>
+                    <span className="flex-1 font-medium text-slate-700">{titleCase(s)}</span>
+                    <span className="font-mono font-semibold text-slate-900">{c.toLocaleString('en-IN')}</span>
+                    <span className="font-mono text-slate-400 w-12 text-right">{pct}%</span>
                   </div>
                 );
               })}
@@ -419,15 +443,15 @@ export default function AgentDrawer({ name, onClose }) {
           {monthlyData.length > 0 && (
             <div>
               <SectionLabel>Month-wise Performance</SectionLabel>
-              <div className="bg-[#141520] border border-white/[0.06] rounded-2xl p-4 shadow-md">
+              <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-4 shadow-xs">
                 <ResponsiveContainer width="100%" height={210}>
                   <BarChart data={monthlyData} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
-                    <CartesianGrid vertical={false} stroke="#1f212e" strokeDasharray="3 3" />
-                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#8e99ac' }} axisLine={{ stroke: '#1f212e' }} tickLine={false} />
-                    <YAxis tickFormatter={(v) => fmtINR(v)} tick={{ fontSize: 10, fill: '#8e99ac' }} axisLine={{ stroke: '#1f212e' }} tickLine={false} />
+                    <CartesianGrid vertical={false} stroke="#f1f5f9" strokeDasharray="3 3" />
+                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} tickLine={false} />
+                    <YAxis tickFormatter={(v) => fmtINR(v)} tick={{ fontSize: 10, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} tickLine={false} />
                     <Tooltip content={<DrawerTooltip />} />
-                    <Bar dataKey="due" name="Due" fill="#242634" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="recvd" name="Recovered" fill="#ff5533" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="due" name="Due" fill="#cbd5e1" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="recvd" name="Recovered" fill="#ff4d30" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -437,20 +461,20 @@ export default function AgentDrawer({ name, onClose }) {
 
         {/* Right Column (7 cols): Big Day-wise Collection Trajectory + Total Collection Card + Day Ledger */}
         <div className="lg:col-span-7 space-y-4">
-          <div className="flex items-center justify-between pb-2 border-b border-white/[0.06] flex-wrap gap-2">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-100 flex-wrap gap-2">
             <div className="flex items-center gap-2">
-              <TrendingUp size={15} className="text-[#ff5533]" />
+              <TrendingUp size={15} className="text-[#ff4d30]" />
               <SectionLabel noMargin>Daily Collection Trajectory</SectionLabel>
             </div>
 
             {/* Trajectory Month Selector Pills */}
-            <div className="flex bg-black/40 border border-white/[0.08] rounded-xl p-0.5 gap-0.5 flex-wrap">
+            <div className="flex bg-slate-100 border border-slate-200 rounded-xl p-0.5 gap-0.5 flex-wrap">
               <button
                 onClick={() => setSelectedTrajMonth('all')}
                 className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold transition-all cursor-pointer ${
                   selectedTrajMonth === 'all'
-                    ? 'bg-gradient-to-r from-[#ff5e3a] to-[#ff3b30] text-white shadow-[0_0_8px_rgba(255,59,48,0.4)]'
-                    : 'text-zinc-400 hover:text-zinc-200'
+                    ? 'bg-gradient-to-r from-[#ff5e3a] to-[#ff3b30] text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 All Months
@@ -461,8 +485,8 @@ export default function AgentDrawer({ name, onClose }) {
                   onClick={() => setSelectedTrajMonth(m)}
                   className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold transition-all cursor-pointer ${
                     selectedTrajMonth === m
-                      ? 'bg-gradient-to-r from-[#ff5e3a] to-[#ff3b30] text-white shadow-[0_0_8px_rgba(255,59,48,0.4)]'
-                      : 'text-zinc-400 hover:text-zinc-200'
+                      ? 'bg-gradient-to-r from-[#ff5e3a] to-[#ff3b30] text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
                   {fmtMonth(m)}
@@ -472,9 +496,9 @@ export default function AgentDrawer({ name, onClose }) {
           </div>
 
           {/* Big Day-wise Collection Chart (Height 290px) */}
-          <div className="bg-[#141520] border border-white/[0.07] rounded-2xl p-4 shadow-xl">
-            <div className="flex items-center justify-between text-[11px] text-zinc-400 mb-3 px-1">
-              <span className="font-display font-semibold text-zinc-300">
+          <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-4 shadow-xs">
+            <div className="flex items-center justify-between text-[11px] text-slate-500 mb-3 px-1">
+              <span className="font-display font-semibold text-slate-800">
                 Showing {trajectoryData.length} days ({activeMonthLabel})
               </span>
               <div className="flex items-center gap-3">
@@ -494,30 +518,30 @@ export default function AgentDrawer({ name, onClose }) {
                 <ComposedChart data={trajectoryData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                   <defs>
                     <linearGradient id="agentCrimsonAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#ff3b30" stopOpacity={0.4} />
+                      <stop offset="5%" stopColor="#ff3b30" stopOpacity={0.2} />
                       <stop offset="95%" stopColor="#ff3b30" stopOpacity={0.0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid vertical={false} stroke="#1f212e" strokeDasharray="3 3" />
+                  <CartesianGrid vertical={false} stroke="#f1f5f9" strokeDasharray="3 3" />
                   <XAxis
                     dataKey="label"
-                    tick={{ fontSize: 9.5, fill: '#8e99ac' }}
-                    axisLine={{ stroke: '#1f212e' }}
+                    tick={{ fontSize: 9.5, fill: '#64748b' }}
+                    axisLine={{ stroke: '#e2e8f0' }}
                     tickLine={false}
                     minTickGap={16}
                   />
                   <YAxis
                     tickFormatter={(v) => fmtINR(v)}
-                    tick={{ fontSize: 10, fill: '#8e99ac' }}
-                    axisLine={{ stroke: '#1f212e' }}
+                    tick={{ fontSize: 10, fill: '#64748b' }}
+                    axisLine={{ stroke: '#e2e8f0' }}
                     tickLine={false}
                   />
                   <Tooltip content={<TrajectoryTooltip />} />
                   <Bar
                     dataKey="recvd"
                     name="Daily Collected"
-                    fill="#ff5533"
-                    fillOpacity={0.38}
+                    fill="#ff4d30"
+                    fillOpacity={0.25}
                     radius={[3, 3, 0, 0]}
                     maxBarSize={18}
                   />
@@ -536,19 +560,19 @@ export default function AgentDrawer({ name, onClose }) {
             </div>
           </div>
 
-          {/* Trajectory Summary Card matching user request: 'and last they total colletion' */}
-          <div className="p-4 rounded-2xl bg-gradient-to-tr from-[#161826] to-[#12131d] border border-[#ff3b30]/25 shadow-xl">
-            <div className="flex items-center justify-between gap-4 flex-wrap pb-3 border-b border-white/[0.06]">
+          {/* Trajectory Summary Card */}
+          <div className="p-4 rounded-2xl bg-gradient-to-tr from-orange-50/50 to-white border border-orange-200 shadow-sm">
+            <div className="flex items-center justify-between gap-4 flex-wrap pb-3 border-b border-orange-200/60">
               <div>
-                <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 font-display flex items-center gap-1.5">
-                  <TrendingUp size={12} className="text-[#ff5533]" />
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 font-display flex items-center gap-1.5">
+                  <TrendingUp size={12} className="text-[#ff4d30]" />
                   <span>Total Collection · {activeMonthLabel}</span>
                 </div>
-                <div className="text-[26px] font-black font-display text-white tracking-tight mt-0.5 flex items-baseline gap-2 flex-wrap">
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-white to-zinc-200">
+                <div className="text-[26px] font-black font-display text-slate-900 tracking-tight mt-0.5 flex items-baseline gap-2 flex-wrap">
+                  <span>
                     {fmtINRFull(trajSummary.totalRecvd)}
                   </span>
-                  <span className="text-[14px] font-bold text-[#ff5533] font-mono">
+                  <span className="text-[14px] font-bold text-[#ff4d30] font-mono">
                     ({trajSummary.recoveryPct.toFixed(2)}% recovery)
                   </span>
                 </div>
@@ -557,10 +581,10 @@ export default function AgentDrawer({ name, onClose }) {
                 <span
                   className={`text-[11px] font-bold px-3 py-1 rounded-full font-mono border ${
                     trajSummary.recoveryPct >= 80
-                      ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                       : trajSummary.recoveryPct >= 65
-                      ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-                      : 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+                      ? 'bg-amber-50 text-amber-700 border-amber-200'
+                      : 'bg-rose-50 text-rose-700 border border-rose-200'
                   }`}
                 >
                   {trajSummary.recoveryPct >= 80 ? 'On track' : trajSummary.recoveryPct >= 65 ? 'Needs review' : 'Below target'}
@@ -570,26 +594,26 @@ export default function AgentDrawer({ name, onClose }) {
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 text-[11.5px]">
               <div>
-                <div className="text-zinc-500 text-[10px] uppercase font-bold">Total Due</div>
-                <div className="font-mono font-bold text-zinc-300 text-[13px] mt-0.5">
+                <div className="text-slate-400 text-[10px] uppercase font-bold">Total Due</div>
+                <div className="font-mono font-bold text-slate-700 text-[13px] mt-0.5">
                   {fmtINR(trajSummary.totalDue)}
                 </div>
               </div>
               <div>
-                <div className="text-zinc-500 text-[10px] uppercase font-bold">Peak Day</div>
-                <div className="font-mono font-bold text-white text-[13px] mt-0.5">
+                <div className="text-slate-400 text-[10px] uppercase font-bold">Peak Day</div>
+                <div className="font-mono font-bold text-slate-900 text-[13px] mt-0.5">
                   {trajSummary.peakDay ? `${fmtDateShort(trajSummary.peakDay.date)} (${fmtINR(trajSummary.peakDay.recvd)})` : '—'}
                 </div>
               </div>
               <div>
-                <div className="text-zinc-500 text-[10px] uppercase font-bold">Daily Average</div>
-                <div className="font-mono font-bold text-[#ff5533] text-[13px] mt-0.5">
+                <div className="text-slate-400 text-[10px] uppercase font-bold">Daily Average</div>
+                <div className="font-mono font-bold text-[#ff4d30] text-[13px] mt-0.5">
                   {fmtINR(trajSummary.avgDaily)}/day
                 </div>
               </div>
               <div>
-                <div className="text-zinc-500 text-[10px] uppercase font-bold">Active Days</div>
-                <div className="font-mono font-bold text-zinc-200 text-[13px] mt-0.5">
+                <div className="text-slate-400 text-[10px] uppercase font-bold">Active Days</div>
+                <div className="font-mono font-bold text-slate-700 text-[13px] mt-0.5">
                   {trajSummary.activeDays} days
                 </div>
               </div>
@@ -600,19 +624,19 @@ export default function AgentDrawer({ name, onClose }) {
           <div>
             <button
               onClick={() => setShowDayLedger((v) => !v)}
-              className="w-full py-2 px-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] flex items-center justify-between text-[11.5px] font-bold text-zinc-400 hover:text-white transition-all cursor-pointer"
+              className="w-full py-2 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 flex items-center justify-between text-[11.5px] font-bold text-slate-600 hover:text-slate-900 transition-all cursor-pointer"
             >
               <span className="flex items-center gap-2">
-                <BarChart2 size={13} className="text-[#ff5533]" />
+                <BarChart2 size={13} className="text-[#ff4d30]" />
                 <span>{showDayLedger ? 'Hide' : 'View'} Day-by-Day Breakdown Table ({trajectoryData.length} days)</span>
               </span>
               {showDayLedger ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
             </button>
 
             {showDayLedger && (
-              <div className="mt-2.5 max-h-[260px] overflow-y-auto scroll-theme border border-white/[0.06] rounded-xl bg-[#12131b] p-2 text-[11px] animate-fade-in-up">
+              <div className="mt-2.5 max-h-[260px] overflow-y-auto scroll-theme border border-slate-200 rounded-xl bg-white p-2 text-[11px] animate-fade-in-up shadow-xs">
                 <table className="w-full text-left">
-                  <thead className="sticky top-0 bg-[#12131b] text-zinc-500 text-[9.5px] uppercase font-bold border-b border-white/[0.06]">
+                  <thead className="sticky top-0 bg-slate-50 text-slate-400 text-[9.5px] uppercase font-bold border-b border-slate-100">
                     <tr>
                       <th className="pb-2 px-2">Date</th>
                       <th className="pb-2 px-2">Cases</th>
@@ -621,21 +645,21 @@ export default function AgentDrawer({ name, onClose }) {
                       <th className="pb-2 px-2">Recovery %</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/[0.03]">
+                  <tbody className="divide-y divide-slate-100">
                     {trajectoryData.map((d) => (
-                      <tr key={d.date} className={`hover:bg-white/[0.02] ${d.isLive ? 'bg-emerald-500/[0.08] font-semibold' : ''}`}>
-                        <td className="py-2 px-2 font-mono text-zinc-300 font-semibold flex items-center gap-1.5">
-                          {d.isLive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />}
+                      <tr key={d.date} className={`hover:bg-slate-50 ${d.isLive ? 'bg-emerald-50/60 font-semibold' : ''}`}>
+                        <td className="py-2 px-2 font-mono text-slate-700 font-semibold flex items-center gap-1.5">
+                          {d.isLive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />}
                           <span>{d.date}</span>
-                          {d.isLive && <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold">LIVE TODAY</span>}
+                          {d.isLive && <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold">LIVE TODAY</span>}
                         </td>
-                        <td className="py-2 px-2 font-mono text-zinc-400">{d.cases}</td>
-                        <td className="py-2 px-2 font-mono text-zinc-400">{fmtINR(d.due)}</td>
-                        <td className={`py-2 px-2 font-mono font-bold ${d.isLive ? 'text-emerald-400' : 'text-white'}`}>{fmtINR(d.recvd)}</td>
+                        <td className="py-2 px-2 font-mono text-slate-500">{d.cases}</td>
+                        <td className="py-2 px-2 font-mono text-slate-500">{fmtINR(d.due)}</td>
+                        <td className={`py-2 px-2 font-mono font-bold ${d.isLive ? 'text-emerald-700' : 'text-slate-900'}`}>{fmtINR(d.recvd)}</td>
                         <td className="py-2 px-2">
                           <span
                             className={`font-mono font-bold ${
-                              d.pct >= 80 ? 'text-emerald-400' : d.pct >= 65 ? 'text-amber-400' : 'text-rose-400'
+                              d.pct >= 80 ? 'text-emerald-700' : d.pct >= 65 ? 'text-amber-700' : 'text-rose-700'
                             }`}
                           >
                             {d.pct.toFixed(2)}%
@@ -661,7 +685,7 @@ export function Drawer({ onClose, isMaximized = false, children }) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className={`fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex ${
+        className={`fixed inset-0 bg-slate-900/35 backdrop-blur-sm z-50 flex ${
           isMaximized ? 'justify-center items-stretch' : 'justify-end'
         }`}
         onClick={(e) => e.target === e.currentTarget && onClose()}
@@ -671,10 +695,10 @@ export function Drawer({ onClose, isMaximized = false, children }) {
           animate={{ x: 0, y: 0, opacity: 1 }}
           exit={{ x: isMaximized ? 0 : 60, y: isMaximized ? 15 : 0, opacity: 0 }}
           transition={{ type: 'spring', stiffness: 350, damping: 32 }}
-          className={`h-full bg-[#0d0e15] overflow-y-auto scroll-theme shadow-2xl text-zinc-100 transition-all duration-200 ${
+          className={`h-full bg-white overflow-y-auto scroll-theme shadow-2xl text-slate-800 transition-all duration-200 ${
             isMaximized
               ? 'w-full h-full max-w-full p-6 sm:p-8 lg:p-10 border-0'
-              : 'w-[940px] xl:w-[1100px] 2xl:w-[1260px] max-w-[96vw] border-l border-white/[0.08] p-6 sm:p-8 backdrop-blur-2xl'
+              : 'w-[940px] xl:w-[1100px] 2xl:w-[1260px] max-w-[96vw] border-l border-slate-200 p-6 sm:p-8 backdrop-blur-2xl'
           }`}
         >
           <div className={isMaximized ? 'max-w-[1720px] mx-auto w-full' : 'w-full'}>
@@ -688,31 +712,31 @@ export function Drawer({ onClose, isMaximized = false, children }) {
 
 export function MiniKpi({ label, value, sub, badge, accent, live }) {
   return (
-    <div className={`bg-[#141520] border rounded-xl p-3 shadow-md transition-colors flex flex-col justify-between ${
-      live ? 'border-emerald-500/30 bg-emerald-500/[0.04]' : 'border-white/[0.06]'
+    <div className={`bg-slate-50 border rounded-xl p-3 shadow-xs transition-colors flex flex-col justify-between ${
+      live ? 'border-emerald-200 bg-emerald-50/60' : 'border-slate-200'
     }`}>
-      <div className="text-[9.5px] font-bold text-zinc-500 uppercase tracking-wider font-display flex items-center justify-between gap-1">
+      <div className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider font-display flex items-center justify-between gap-1">
         <span className="flex items-center gap-1 truncate">
-          {live && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />}
+          {live && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />}
           <span>{label}</span>
         </span>
         {badge && (
-          <span className="text-[8px] px-1 py-0.2 rounded font-mono font-bold bg-white/[0.06] text-zinc-400 border border-white/[0.06] shrink-0">
+          <span className="text-[8px] px-1 py-0.2 rounded font-mono font-bold bg-white text-slate-600 border border-slate-200 shrink-0">
             {badge}
           </span>
         )}
       </div>
       <div className={`text-[15px] font-mono font-bold mt-1 ${
-        live ? 'text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.35)]' : accent ? 'text-[#ff5533]' : 'text-white'
+        live ? 'text-emerald-700' : accent ? 'text-[#ff4d30]' : 'text-slate-900'
       }`}>{value}</div>
-      {sub && <div className="text-[9px] text-zinc-400 mt-0.5 font-medium truncate">{sub}</div>}
+      {sub && <div className="text-[9px] text-slate-500 mt-0.5 font-medium truncate">{sub}</div>}
     </div>
   );
 }
 
 export function SectionLabel({ children, noMargin }) {
   return (
-    <div className={`text-[10.5px] font-bold uppercase tracking-wider text-zinc-400 font-display ${noMargin ? '' : 'mb-2.5'}`}>
+    <div className={`text-[10.5px] font-bold uppercase tracking-wider text-slate-400 font-display ${noMargin ? '' : 'mb-2.5'}`}>
       {children}
     </div>
   );
@@ -721,13 +745,13 @@ export function SectionLabel({ children, noMargin }) {
 function DrawerTooltip({ active, payload, label }) {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-[#181924]/95 border border-white/10 rounded-xl p-2.5 shadow-2xl backdrop-blur-md text-white text-[11px]">
-        {label && <div className="font-bold text-zinc-400 mb-1 font-display">{label}</div>}
+      <div className="bg-white border border-slate-200 rounded-xl p-2.5 shadow-xl backdrop-blur-md text-slate-800 text-[11px]">
+        {label && <div className="font-bold text-slate-500 mb-1 font-display">{label}</div>}
         {payload.map((item, index) => (
           <div key={index} className="flex items-center gap-1.5 py-0.5">
             <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: item.color || item.fill || '#ff3b30' }} />
-            <span className="text-zinc-400">{item.name}:</span>
-            <span className="font-mono font-bold text-white">{fmtINRFull(item.value)}</span>
+            <span className="text-slate-500">{item.name}:</span>
+            <span className="font-mono font-bold text-slate-900">{fmtINRFull(item.value)}</span>
           </div>
         ))}
       </div>
@@ -740,31 +764,31 @@ function TrajectoryTooltip({ active, payload }) {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
     return (
-      <div className="bg-[#161724]/95 border border-white/15 rounded-xl p-3 shadow-2xl backdrop-blur-md text-white text-[11.5px] min-w-[170px]">
-        <div className="font-bold text-zinc-300 font-display pb-1.5 mb-1.5 border-b border-white/10 flex items-center justify-between">
+      <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xl backdrop-blur-md text-slate-800 text-[11.5px] min-w-[170px]">
+        <div className="font-bold text-slate-700 font-display pb-1.5 mb-1.5 border-b border-slate-100 flex items-center justify-between">
           <span>{data.date}</span>
-          <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
-            data.pct >= 80 ? 'bg-emerald-500/20 text-emerald-400' : data.pct >= 65 ? 'bg-amber-500/20 text-amber-300' : 'bg-rose-500/20 text-rose-400'
+          <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full font-bold ${
+            data.pct >= 80 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : data.pct >= 65 ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
           }`}>
             {data.pct.toFixed(2)}%
           </span>
         </div>
         <div className="space-y-1 text-[11px]">
-          <div className="flex justify-between text-zinc-400">
+          <div className="flex justify-between text-slate-500">
             <span>Collected:</span>
-            <span className="font-mono font-bold text-[#ff5533]">{fmtINRFull(data.recvd)}</span>
+            <span className="font-mono font-bold text-[#ff4d30]">{fmtINRFull(data.recvd)}</span>
           </div>
-          <div className="flex justify-between text-zinc-400">
+          <div className="flex justify-between text-slate-500">
             <span>Repay Due:</span>
-            <span className="font-mono text-zinc-300">{fmtINRFull(data.due)}</span>
+            <span className="font-mono text-slate-700">{fmtINRFull(data.due)}</span>
           </div>
-          <div className="flex justify-between text-zinc-400">
+          <div className="flex justify-between text-slate-500">
             <span>Cases:</span>
-            <span className="font-mono font-semibold text-white">{data.cases}</span>
+            <span className="font-mono font-semibold text-slate-900">{data.cases}</span>
           </div>
-          <div className="flex justify-between text-zinc-500 pt-1 border-t border-white/[0.06] text-[10px]">
+          <div className="flex justify-between text-slate-400 pt-1 border-t border-slate-100 text-[10px]">
             <span>Cumulative:</span>
-            <span className="font-mono text-zinc-300">{fmtINR(data.cumulative)}</span>
+            <span className="font-mono text-slate-600">{fmtINR(data.cumulative)}</span>
           </div>
         </div>
       </div>

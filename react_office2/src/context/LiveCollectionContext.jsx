@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { fetchDashboardData } from '../utils/data';
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8002';
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8005';
 const LiveCollectionContext = createContext(null);
 
 export function LiveCollectionProvider({ children }) {

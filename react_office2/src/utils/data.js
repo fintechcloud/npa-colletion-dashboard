@@ -11,6 +11,17 @@ export let META = {
   today: '2026-01-01',
 };
 
+export let DOMAINS = META.domains || [];
+export let MODES = META.modes || ['PART-PAYMENT', 'SETTLED', 'CLOSED', 'SETTLED ON DISBURSAL', 'OTHER'];
+
+export const MODE_COLORS = {
+  'PART-PAYMENT': '#ff5533',
+  SETTLED: '#818cf8',
+  CLOSED: '#10b981',
+  'SETTLED ON DISBURSAL': '#06b6d4',
+  OTHER: '#94a3b8',
+};
+
 export let AGENTS = META.agents;
 export let LEADERS = META.leaders;
 export let STATUSES = META.statuses;
@@ -23,7 +34,7 @@ export let LAST_DATE_STR = META.dateMax;
 export let TODAY_STR = META.today;
 export let YESTERDAY_STR = subtractOneDayUTC(META.today);
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8002';
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8005';
 
 export async function fetchDashboardData() {
   const res = await fetch(`${API_BASE}/api/dashboard-data`);
@@ -32,6 +43,8 @@ export async function fetchDashboardData() {
 
   CASES = payload.cases;
   META = payload.meta;
+  DOMAINS = META.domains || [];
+  MODES = META.modes || ['PART-PAYMENT', 'SETTLED', 'CLOSED', 'SETTLED ON DISBURSAL', 'OTHER'];
   AGENTS = META.agents;
   LEADERS = META.leaders;
   STATUSES = META.statuses;
@@ -108,7 +121,8 @@ export function pctBand(p) {
   return p >= 80 ? 'good' : p >= 65 ? 'mid' : 'low';
 }
 
-export function filterRows({ leader = '', agent = '', type = '', from = '', to = '', state = '' } = {}) {
+export function filterRows({ domain = '', leader = '', agent = '', type = '', from = '', to = '', state = '' } = {}) {
+  const domainI = domain && domain !== 'All Domains' ? DOMAINS.indexOf(domain) : -1;
   const leaderI = leader ? LEADERS.indexOf(leader) : -1;
   const agentI = agent ? AGENTS.indexOf(agent) : -1;
   const typeI = type ? TYPES.indexOf(type) : -1;
@@ -116,6 +130,7 @@ export function filterRows({ leader = '', agent = '', type = '', from = '', to =
   const fromOff = from ? dateToOffset(from) : -Infinity;
   const toOff = to ? dateToOffset(to) : Infinity;
   return CASES.filter((r) => {
+    if (domainI >= 0 && r[8] !== undefined && r[8] !== domainI) return false;
     if (leaderI >= 0 && r[1] !== leaderI) return false;
     if (agentI >= 0 && r[0] !== agentI) return false;
     if (typeI >= 0 && r[2] !== typeI) return false;
@@ -126,37 +141,57 @@ export function filterRows({ leader = '', agent = '', type = '', from = '', to =
 }
 
 export function aggregate(rows) {
-  let due = 0, recvd = 0;
+  let due = 0, recvd = 0, principal = 0, sep2026Recvd = 0;
   const cases = rows.length;
   const statusCount = {};
   STATUSES.forEach((s) => (statusCount[s] = 0));
+  const modeCount = {};
+  MODES.forEach((m) => (modeCount[m] = 0));
   const typeAgg = {};
   TYPES.forEach((t) => (typeAgg[t] = { due: 0, recvd: 0, cases: 0 }));
   const monthMap = {};
   const dayMap = {};
   const agentSet = new Set();
   const leaderSet = new Set();
+  const domainSet = new Set();
 
   for (const r of rows) {
-    const [a, l, t, s, off, d, rv] = r;
-    due += d;
-    recvd += rv;
-    statusCount[STATUSES[s]]++;
-    typeAgg[TYPES[t]].due += d;
-    typeAgg[TYPES[t]].recvd += rv;
-    typeAgg[TYPES[t]].cases++;
+    const [a, l, t, s, off, d, rv, st, dI, loanAmt, mI, dpd, recMonth] = r;
+    due += (d || 0);
+    recvd += (rv || 0);
+    principal += (loanAmt || 0);
+
+    const isSep2026 = (recMonth && String(recMonth).toLowerCase().includes('sep') && String(recMonth).includes('2026'));
+    if (isSep2026) {
+      sep2026Recvd += (rv || 0);
+    }
+
+    if (s !== undefined && STATUSES[s]) {
+      statusCount[STATUSES[s]] = (statusCount[STATUSES[s]] || 0) + 1;
+    }
+    if (mI !== undefined && MODES[mI]) {
+      modeCount[MODES[mI]] = (modeCount[MODES[mI]] || 0) + 1;
+    }
+    if (t !== undefined && TYPES[t]) {
+      typeAgg[TYPES[t]].due += (d || 0);
+      typeAgg[TYPES[t]].recvd += (rv || 0);
+      typeAgg[TYPES[t]].cases++;
+    }
     const dstr = offsetToStr(off);
     const mstr = dstr.slice(0, 7);
     if (!monthMap[mstr]) monthMap[mstr] = { due: 0, recvd: 0, cases: 0 };
-    monthMap[mstr].due += d;
-    monthMap[mstr].recvd += rv;
+    monthMap[mstr].due += (d || 0);
+    monthMap[mstr].recvd += (rv || 0);
     monthMap[mstr].cases++;
+
     if (!dayMap[dstr]) dayMap[dstr] = { due: 0, recvd: 0, cases: 0 };
-    dayMap[dstr].due += d;
-    dayMap[dstr].recvd += rv;
+    dayMap[dstr].due += (d || 0);
+    dayMap[dstr].recvd += (rv || 0);
     dayMap[dstr].cases++;
+
     agentSet.add(a);
     leaderSet.add(l);
+    if (dI !== undefined) domainSet.add(dI);
   }
 
   const monthly = Object.keys(monthMap).sort().map((m) => ({
@@ -169,10 +204,10 @@ export function aggregate(rows) {
   }));
 
   return {
-    due, recvd, cases,
+    due, recvd, principal, sep2026Recvd, cases,
     pct: due ? round1((recvd / due) * 100) : 0,
-    statusCount, typeAgg, monthly, daily,
-    agentCount: agentSet.size, leaderCount: leaderSet.size,
+    statusCount, modeCount, typeAgg, monthly, daily,
+    agentCount: agentSet.size, leaderCount: leaderSet.size, domainCount: domainSet.size,
   };
 }
 
@@ -204,17 +239,61 @@ export function computeLeaderRows(filters, liveLeaderMap = {}) {
   }).filter((l) => l.cases > 0);
 }
 
+export const DOMAIN_DOT_COLORS = {
+  'Salary4Sure': 'bg-[#f97316]',
+  'SALARY ADDA': 'bg-[#6366f1]',
+  'Snap Paisa': 'bg-[#10b981]',
+  'Minutes Loan': 'bg-[#f59e0b]',
+  'Fast salary': 'bg-[#8b5cf6]',
+  'DHANVARSHAA': 'bg-[#ec4899]',
+  'Salary Setu': 'bg-[#06b6d4]',
+  'Jhatpat Cash': 'bg-[#14b8a6]',
+  'F1SPEEDLOAN': 'bg-[#3b82f6]',
+  'All Domains': 'bg-slate-400',
+};
+
+export function getAgentDomains(agentName) {
+  const agentI = AGENTS.indexOf(agentName);
+  if (agentI < 0) return [];
+  const domainSet = new Set();
+  for (const r of CASES) {
+    if (r[0] === agentI && r[8] !== undefined && DOMAINS[r[8]]) {
+      domainSet.add(DOMAINS[r[8]]);
+    }
+  }
+  return Array.from(domainSet);
+}
+
+export function getAgentDomainsDetailed(agentName) {
+  const agentI = AGENTS.indexOf(agentName);
+  if (agentI < 0) return [];
+  const map = {};
+  for (const r of CASES) {
+    if (r[0] === agentI && r[8] !== undefined && DOMAINS[r[8]]) {
+      const dName = DOMAINS[r[8]];
+      if (!map[dName]) map[dName] = { name: dName, cases: 0, due: 0, recvd: 0 };
+      map[dName].cases++;
+      map[dName].due += (r[5] || 0);
+      map[dName].recvd += (r[6] || 0);
+    }
+  }
+  return Object.values(map).sort((a, b) => b.cases - a.cases);
+}
+
 export function computeEmployeeRows(filters, liveAgentMap = {}) {
   const rows = filterRows(filters);
   const byAgent = {};
   rows.forEach((r) => {
     const a = AGENTS[r[0]];
     const l = LEADERS[r[1]];
-    if (!byAgent[a]) byAgent[a] = { due: 0, recvd: 0, cases: 0, leaders: new Set(), statusCount: {} };
+    if (!byAgent[a]) byAgent[a] = { due: 0, recvd: 0, cases: 0, leaders: new Set(), domains: new Set(), statusCount: {} };
     byAgent[a].due += r[5];
     byAgent[a].recvd += r[6];
     byAgent[a].cases++;
     byAgent[a].leaders.add(l);
+    if (r[8] !== undefined && DOMAINS[r[8]]) {
+      byAgent[a].domains.add(DOMAINS[r[8]]);
+    }
     const st = STATUSES[r[3]];
     byAgent[a].statusCount[st] = (byAgent[a].statusCount[st] || 0) + 1;
   });
@@ -227,6 +306,7 @@ export function computeEmployeeRows(filters, liveAgentMap = {}) {
       cases: v.cases,
       leader: META.agentPrimaryLeader[name] || [...v.leaders][0],
       multiLeader: v.leaders.size > 1,
+      domains: [...v.domains],
       liveRecvd: agentLive.liveRecvd || 0,
       liveCases: agentLive.liveCases || 0,
       pct: v.due ? round1((v.recvd / v.due) * 100) : 0,

@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Environment and sensitive keys
+.env
+.env.*
+*.local
+!.env.example
+*service_account*.json
+*client_secret*.json
+authorized_user.json
+
+# Runtime cache and config
+data/google_sheet_config.json
+data/npa_master_cache.json
+
+# Logs & System
+*.log
+.DS_Store

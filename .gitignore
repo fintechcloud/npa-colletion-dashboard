@@ -18,7 +18,11 @@ authorized_user.json
 *google_sheet_config*.json
 .env
 .env.*
+*.local
 !.env.example
+
+# Runtime Caches & Local Data
+*npa_master_cache*.json
 
 # Logs and system files
 *.log

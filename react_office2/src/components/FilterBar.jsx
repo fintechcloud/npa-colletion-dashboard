@@ -1,9 +1,42 @@
-import { useMemo } from 'react';
-import { SlidersHorizontal } from 'lucide-react';
-import { LEADERS, AGENTS, META, titleCase, fmtMonth } from '../utils/data';
+import { useMemo, useEffect } from 'react';
+import { SlidersHorizontal, X, RotateCcw } from 'lucide-react';
+import { META, titleCase, fmtMonth } from '../utils/data';
+import { useDomain } from '../context/DomainContext';
 
 export default function FilterBar({ filters, setFilters, showAgent = true, showType = true }) {
   const update = (patch) => setFilters((f) => ({ ...f, ...patch }));
+
+  const {
+    selectedDomain,
+    clearDomain,
+    isDomainActive,
+    getAvailableLeaders,
+    getAvailableAgents,
+  } = useDomain();
+
+  // Dynamic available leaders for the selected domain
+  const availableLeaders = useMemo(() => {
+    return getAvailableLeaders(selectedDomain);
+  }, [getAvailableLeaders, selectedDomain]);
+
+  // Dynamic available agents for the selected domain & leader
+  const availableAgents = useMemo(() => {
+    return getAvailableAgents(selectedDomain, filters.leader);
+  }, [getAvailableAgents, selectedDomain, filters.leader]);
+
+  // Auto-reset leader if not in available leaders for domain
+  useEffect(() => {
+    if (filters.leader && !availableLeaders.includes(filters.leader)) {
+      update({ leader: '', agent: '' });
+    }
+  }, [availableLeaders, filters.leader]);
+
+  // Auto-reset agent if not in available agents for domain/leader
+  useEffect(() => {
+    if (filters.agent && !availableAgents.includes(filters.agent)) {
+      update({ agent: '' });
+    }
+  }, [availableAgents, filters.agent]);
 
   // Month date range boundaries from dataset
   const latestMonthStr = useMemo(() => (META.dateMax ? META.dateMax.slice(0, 7) : '2026-07'), []);
@@ -29,28 +62,31 @@ export default function FilterBar({ filters, setFilters, showAgent = true, showT
     }
   };
 
-  const clear = () => setFilters({ leader: '', agent: '', type: '', from: '', to: '' });
+  const clear = () => {
+    setFilters({ leader: '', agent: '', type: '', from: '', to: '' });
+    clearDomain();
+  };
 
   const hasActiveFilters = Boolean(
-    filters.leader || filters.agent || filters.type || filters.from || filters.to
+    isDomainActive || filters.leader || filters.agent || filters.type || filters.from || filters.to
   );
 
   return (
-    <div className="bg-[#0f111d]/45 backdrop-blur-xl border border-white/10 rounded-2xl px-4 py-3 mb-6 flex items-center gap-3 flex-wrap shadow-xl">
-      <span className="flex items-center gap-2 text-[11px] font-bold text-zinc-400 uppercase tracking-wider font-display">
-        <SlidersHorizontal size={14} className="text-[#ff5533]" />
+    <div className="bg-white border border-slate-200/70 rounded-2xl px-3.5 py-2.5 mb-5 flex items-center gap-2.5 sm:gap-3 flex-wrap shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+      <span className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+        <SlidersHorizontal size={13} className="text-slate-500" />
         <span>Filters</span>
       </span>
 
       {/* Period Segmented Control: Overall vs Current Month */}
-      <div className="flex bg-black/40 border border-white/[0.08] rounded-xl p-0.5 gap-0.5 shadow-inner">
+      <div className="flex bg-slate-100/90 border border-slate-200/60 rounded-xl p-0.5 gap-0.5 text-[11.5px]">
         <button
           type="button"
           onClick={() => selectPeriod('overall')}
-          className={`flex items-center gap-1.5 text-[12px] font-bold px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+          className={`flex items-center gap-1.5 font-medium px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
             activePeriod === 'overall'
-              ? 'bg-gradient-to-r from-[#ff5e3a] to-[#ff3b30] text-white shadow-[0_0_12px_rgba(255,59,48,0.35)]'
-              : 'text-zinc-400 hover:text-zinc-200'
+              ? 'bg-white text-slate-900 shadow-2xs font-semibold'
+              : 'text-slate-600 hover:text-slate-900'
           }`}
         >
           <span>Overall</span>
@@ -59,16 +95,16 @@ export default function FilterBar({ filters, setFilters, showAgent = true, showT
         <button
           type="button"
           onClick={() => selectPeriod('current-month')}
-          className={`flex items-center gap-1.5 text-[12px] font-bold px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+          className={`flex items-center gap-1.5 font-medium px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
             activePeriod === 'current-month'
-              ? 'bg-gradient-to-r from-[#ff5e3a] to-[#ff3b30] text-white shadow-[0_0_12px_rgba(255,59,48,0.35)]'
-              : 'text-zinc-400 hover:text-zinc-200'
+              ? 'bg-white text-slate-900 shadow-2xs font-semibold'
+              : 'text-slate-600 hover:text-slate-900'
           }`}
         >
           <span>Current Month</span>
           <span
-            className={`text-[10px] font-mono px-1.5 py-0.2 rounded font-semibold ${
-              activePeriod === 'current-month' ? 'bg-black/30 text-white' : 'bg-white/[0.08] text-zinc-400'
+            className={`text-[9.5px] font-mono px-1 py-0.2 rounded font-medium ${
+              activePeriod === 'current-month' ? 'bg-slate-100 text-slate-700' : 'bg-white/80 text-slate-500 border border-slate-200/60'
             }`}
           >
             {monthName}
@@ -76,32 +112,36 @@ export default function FilterBar({ filters, setFilters, showAgent = true, showT
         </button>
       </div>
 
-      <div className="h-5 w-[1px] bg-white/[0.08] hidden sm:block" />
+      <div className="h-4 w-[1px] bg-slate-200 hidden sm:block" />
 
-      {/* Leader select */}
+      {/* Leader select (dynamically narrowed by selected domain) */}
       <select
         value={filters.leader}
-        onChange={(e) => update({ leader: e.target.value })}
-        className="text-[12.5px] font-semibold bg-white/[0.04] hover:bg-white/[0.07] border border-white/[0.08] text-zinc-200 rounded-xl px-3 py-1.5 outline-none focus:border-[#ff3b30]/60 transition-all cursor-pointer"
+        onChange={(e) => update({ leader: e.target.value, agent: '' })}
+        className="text-[12px] font-medium bg-white hover:bg-slate-50/80 border border-slate-200/80 text-slate-700 rounded-xl px-2.5 py-1.5 outline-none focus:border-slate-400 transition-all cursor-pointer"
       >
-        <option value="" className="bg-[#12131a] text-zinc-200">All leaders</option>
-        {LEADERS.map((l) => (
-          <option key={l} value={l} className="bg-[#12131a] text-zinc-200">
+        <option value="" className="bg-white text-slate-800">
+          All leaders {isDomainActive ? `(${availableLeaders.length})` : ''}
+        </option>
+        {availableLeaders.map((l) => (
+          <option key={l} value={l} className="bg-white text-slate-800">
             {titleCase(l)}
           </option>
         ))}
       </select>
 
-      {/* Agent select */}
+      {/* Agent select (dynamically narrowed by selected domain & leader) */}
       {showAgent && (
         <select
           value={filters.agent}
           onChange={(e) => update({ agent: e.target.value })}
-          className="text-[12.5px] font-semibold bg-white/[0.04] hover:bg-white/[0.07] border border-white/[0.08] text-zinc-200 rounded-xl px-3 py-1.5 outline-none focus:border-[#ff3b30]/60 transition-all cursor-pointer max-w-[200px]"
+          className="text-[12px] font-medium bg-white hover:bg-slate-50/80 border border-slate-200/80 text-slate-700 rounded-xl px-2.5 py-1.5 outline-none focus:border-slate-400 transition-all cursor-pointer max-w-[200px]"
         >
-          <option value="" className="bg-[#12131a] text-zinc-200">All employees</option>
-          {AGENTS.map((a) => (
-            <option key={a} value={a} className="bg-[#12131a] text-zinc-200">
+          <option value="" className="bg-white text-slate-800">
+            All employees {isDomainActive || filters.leader ? `(${availableAgents.length})` : ''}
+          </option>
+          {availableAgents.map((a) => (
+            <option key={a} value={a} className="bg-white text-slate-800">
               {a}
             </option>
           ))}
@@ -110,15 +150,15 @@ export default function FilterBar({ filters, setFilters, showAgent = true, showT
 
       {/* Segmented Type filter */}
       {showType && (
-        <div className="flex bg-black/40 border border-white/[0.06] rounded-xl p-0.5 gap-0.5">
+        <div className="flex bg-slate-100/90 border border-slate-200/60 rounded-xl p-0.5 gap-0.5 text-[11.5px]">
           {[['', 'All'], ['NEW', 'New'], ['REPEAT', 'Repeat']].map(([val, label]) => (
             <button
               key={val}
               onClick={() => update({ type: val })}
-              className={`text-[12px] font-bold px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+              className={`font-medium px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
                 filters.type === val
-                  ? 'bg-white/[0.12] text-white shadow-sm border border-white/[0.08]'
-                  : 'text-zinc-400 hover:text-zinc-200'
+                  ? 'bg-white text-slate-900 shadow-2xs font-semibold'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               {label}
@@ -127,37 +167,83 @@ export default function FilterBar({ filters, setFilters, showAgent = true, showT
         </div>
       )}
 
-      <div className="h-5 w-[1px] bg-white/[0.08] hidden sm:block" />
+      <div className="h-4 w-[1px] bg-slate-200 hidden sm:block" />
 
       {/* Date range inputs */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5">
         <input
           type="date"
           value={filters.from}
           onChange={(e) => update({ from: e.target.value })}
-          className={`text-[12px] font-semibold bg-white/[0.04] hover:bg-white/[0.07] border rounded-xl px-3 py-1.5 outline-none focus:border-[#ff3b30]/60 transition-all cursor-pointer ${
-            activePeriod === 'custom' ? 'border-[#ff3b30]/50 text-white' : 'border-white/[0.08] text-zinc-200'
+          className={`text-[11.5px] font-medium bg-white hover:bg-slate-50/80 border rounded-xl px-2.5 py-1 outline-none focus:border-slate-400 transition-all cursor-pointer ${
+            activePeriod === 'custom' ? 'border-slate-400 text-slate-900' : 'border-slate-200/80 text-slate-600'
           }`}
         />
-        <span className="text-[12px] text-zinc-500 font-medium">to</span>
+        <span className="text-[11px] text-slate-400 font-normal">to</span>
         <input
           type="date"
           value={filters.to}
           onChange={(e) => update({ to: e.target.value })}
-          className={`text-[12px] font-semibold bg-white/[0.04] hover:bg-white/[0.07] border rounded-xl px-3 py-1.5 outline-none focus:border-[#ff3b30]/60 transition-all cursor-pointer ${
-            activePeriod === 'custom' ? 'border-[#ff3b30]/50 text-white' : 'border-white/[0.08] text-zinc-200'
+          className={`text-[11.5px] font-medium bg-white hover:bg-slate-50/80 border rounded-xl px-2.5 py-1 outline-none focus:border-slate-400 transition-all cursor-pointer ${
+            activePeriod === 'custom' ? 'border-slate-400 text-slate-900' : 'border-slate-200/80 text-slate-600'
           }`}
         />
       </div>
 
-      {/* Clear action */}
+      {/* Active Domain Chip with remove button */}
+      {isDomainActive && (
+        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 border border-slate-200/80 text-slate-700 text-[11px] font-medium">
+          <span>Brand: <strong className="text-slate-900 font-semibold">{selectedDomain}</strong></span>
+          <button
+            type="button"
+            onClick={clearDomain}
+            className="p-0.5 hover:bg-slate-200 rounded-full text-slate-500 hover:text-slate-800 cursor-pointer transition-colors"
+            aria-label="Remove domain filter"
+          >
+            <X size={11} />
+          </button>
+        </div>
+      )}
+
+      {/* Active Leader Chip with remove button */}
+      {filters.leader && (
+        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 border border-slate-200/80 text-slate-700 text-[11px] font-medium">
+          <span>Leader: <strong className="text-slate-900 font-semibold">{titleCase(filters.leader)}</strong></span>
+          <button
+            type="button"
+            onClick={() => update({ leader: '', agent: '' })}
+            className="p-0.5 hover:bg-slate-200 rounded-full text-slate-500 hover:text-slate-800 cursor-pointer transition-colors"
+            aria-label="Remove leader filter"
+          >
+            <X size={11} />
+          </button>
+        </div>
+      )}
+
+      {/* Active Agent Chip with remove button */}
+      {filters.agent && (
+        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 border border-slate-200/80 text-slate-700 text-[11px] font-medium">
+          <span>Agent: <strong className="text-slate-900 font-semibold">{filters.agent}</strong></span>
+          <button
+            type="button"
+            onClick={() => update({ agent: '' })}
+            className="p-0.5 hover:bg-slate-200 rounded-full text-slate-500 hover:text-slate-800 cursor-pointer transition-colors"
+            aria-label="Remove agent filter"
+          >
+            <X size={11} />
+          </button>
+        </div>
+      )}
+
+      {/* Clear all action */}
       {hasActiveFilters && (
         <button
           type="button"
           onClick={clear}
-          className="ml-auto text-[12px] font-bold text-[#ff5533] hover:text-[#ff3b30] hover:underline px-2 transition-colors cursor-pointer"
+          className="ml-auto flex items-center gap-1 text-[11.5px] font-medium text-slate-500 hover:text-slate-900 px-2 transition-colors cursor-pointer"
         >
-          Reset to Overall
+          <RotateCcw size={11} />
+          <span>Reset</span>
         </button>
       )}
     </div>

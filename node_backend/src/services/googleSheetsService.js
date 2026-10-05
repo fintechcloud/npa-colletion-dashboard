@@ -32,8 +32,9 @@ export function loadConfig() {
   }
   return {
     sheet_url: process.env.GOOGLE_SHEET_URL || fileCfg.sheet_url || '',
-    worksheet_title: process.env.WORKSHEET_TITLE || fileCfg.worksheet_title || 'master_data',
-    sheet_title: fileCfg.sheet_title || "FAST PAISE MASTER PRE Sep'26",
+    worksheet_title: process.env.WORKSHEET_TITLE || fileCfg.worksheet_title || 'MASTER',
+    daily_worksheet_title: process.env.DAILY_WORKSHEET_TITLE || fileCfg.daily_worksheet_title || 'DAILY RECD',
+    sheet_title: fileCfg.sheet_title || 'PAYMENTS NPA-2',
     last_synced: fileCfg.last_synced || null,
   };
 }
@@ -44,8 +45,9 @@ export function saveConfig(cfg) {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     const toSave = {
       sheet_url: process.env.GOOGLE_SHEET_URL ? '' : (cfg.sheet_url || ''),
-      worksheet_title: cfg.worksheet_title || 'master_data',
-      sheet_title: cfg.sheet_title || '',
+      worksheet_title: cfg.worksheet_title || 'MASTER',
+      daily_worksheet_title: cfg.daily_worksheet_title || 'DAILY RECD',
+      sheet_title: cfg.sheet_title || 'PAYMENTS NPA-2',
       last_synced: cfg.last_synced || new Date().toISOString(),
     };
     fs.writeFileSync(CONFIG_PATH, JSON.stringify(toSave, null, 2), 'utf-8');
@@ -143,9 +145,12 @@ export async function fetchRawSheetRows(worksheetTitleOverride = null) {
 
 export async function fetchLiveCollection() {
   const cfg = loadConfig();
+  const masterTab = cfg.worksheet_title || process.env.WORKSHEET_TITLE || 'MASTER';
+  const dailyTab = cfg.daily_worksheet_title || process.env.DAILY_WORKSHEET_TITLE || 'DAILY RECD';
+
   const [collRecords, masterRecords] = await Promise.all([
-    fetchRawSheetRows('COLLECTION').catch(() => null),
-    fetchRawSheetRows('master_data').catch(() => null),
+    fetchRawSheetRows(dailyTab).catch(() => null),
+    fetchRawSheetRows(masterTab).catch(() => null),
   ]);
 
   if (!collRecords && !masterRecords) {
@@ -165,16 +170,17 @@ export async function fetchLiveCollection() {
     };
   }
 
-  // Build master_data lookup by Loan No
+  // Build master lookup by Loan No
   const loanMetaMap = new Map();
   if (masterRecords) {
     for (const r of masterRecords) {
-      const loanNo = String(r['Loan No'] || r['Loan ID'] || '').trim();
-      const agent = String(r['Agent Name'] || r['Agent'] || r['Employee'] || 'Unassigned').trim().replace(/\b\w/g, (c) => c.toUpperCase());
-      const leader = String(r['Team Leader Allocation'] || r['Team Leader'] || r['TL'] || 'OPERATIONS').trim().toUpperCase();
-      const status = String(r['latest Status'] || r['Current Status'] || 'CLOSED').trim().toUpperCase();
+      const loanNo = String(r['LOAN NO'] || r['Loan No'] || r['LOAN NO.'] || r['Loan ID'] || '').trim();
+      const agent = String(r['AGENT NAME'] || r['Agent Name'] || r['Agent'] || 'Unassigned').trim().replace(/\b\w/g, (c) => c.toUpperCase());
+      const leader = String(r['TEAM LEADER'] || r['Team Leader'] || 'OPERATIONS').trim().toUpperCase();
+      const domain = String(r['Domain'] || r['DOMAIN'] || '').trim();
+      const status = String(r['MODE'] || r['STATUS'] || r['latest Status'] || 'RECD').trim().toUpperCase();
       if (loanNo) {
-        loanMetaMap.set(loanNo, { agent, leader, status });
+        loanMetaMap.set(loanNo, { agent, leader, domain, status });
       }
     }
   }
@@ -186,8 +192,17 @@ export async function fetchLiveCollection() {
   const m = pad(now.getMonth() + 1);
   const y = now.getFullYear();
 
-  // Match formats like 23/09/2026, 23-09-2026, 2026-09-23
-  const todayPatterns = [`${d}/${m}/${y}`, `${d}-${m}-${y}`, todayStr];
+  const monthNamesShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const curMonShort = monthNamesShort[now.getMonth()];
+  const todayPatterns = [
+    `${d}/${m}/${y}`,
+    `${d}-${m}-${y}`,
+    todayStr,
+    `${d}-${curMonShort}-${y}`,
+    `${d} ${curMonShort} ${y}`,
+    `${Number(d)}-${curMonShort}-${y}`,
+    `${Number(d)} ${curMonShort} ${y}`,
+  ];
 
   const byAgent = {};
   const byLeader = {};
@@ -195,20 +210,23 @@ export async function fetchLiveCollection() {
   let totalLiveToday = 0;
   let totalLiveCases = 0;
 
-  // Primary source for live transactions: COLLECTION tab
-  const transactions = (collRecords || []).filter(
-    (r) => r['BRAND'] === 'FastPaise' || String(r['LOAN NO.'] || '').startsWith('FAST')
-  );
+  // Primary source for live transactions: DAILY RECD tab
+  const transactions = collRecords || [];
 
   if (transactions.length > 0) {
     for (const r of transactions) {
-      const loanNo = String(r['LOAN NO.'] || r['Loan No'] || '').trim();
-      const amtRaw = String(r['TOTAL RCV'] || r['Total Recvd'] || 0).replace(/,/g, '').trim();
-      const rcvDate = String(r['RCV DATE'] || '').trim();
-      const status = String(r['LOAN STATUS'] || 'CLOSED').trim().toUpperCase();
+      const loanNo = String(r['LOAN NO'] || r['LOAN NO.'] || r['Loan No'] || '').trim();
+      const amtRaw = String(r['RECD AMT.'] || r['RECD AMT'] || r['TOTAL RCV'] || r['Total Recvd'] || 0).replace(/,/g, '').trim();
+      const rcvDate = String(r['RECD DATE'] || r['RCV DATE'] || r['Payment Date'] || '').trim();
+      const status = String(r['MODE'] || r['LOAN STATUS'] || r['STATUS'] || 'RECD').trim().toUpperCase();
       const amt = parseFloat(amtRaw) || 0;
 
-      const meta = loanMetaMap.get(loanNo) || { agent: 'Unassigned', leader: 'OPERATIONS', status };
+      const meta = loanMetaMap.get(loanNo) || {
+        agent: String(r['AGENT NAME'] || r['Agent Name'] || 'Unassigned').trim().replace(/\b\w/g, (c) => c.toUpperCase()),
+        leader: String(r['TEAM LEADER'] || r['Team Leader'] || 'OPERATIONS').trim().toUpperCase(),
+        domain: String(r['Domain'] || r['DOMAIN'] || '').trim(),
+        status,
+      };
       const agent = meta.agent;
       const leader = meta.leader;
 
@@ -250,14 +268,14 @@ export async function fetchLiveCollection() {
       }
     }
   } else if (masterRecords) {
-    // Fallback if COLLECTION tab is empty
+    // Fallback if DAILY RECD tab is empty: check MASTER for collections received today
     for (const r of masterRecords) {
-      const agent = String(r['Agent Name'] || r['Agent'] || '').trim().replace(/\b\w/g, (c) => c.toUpperCase());
-      const leader = String(r['Team Leader Allocation'] || 'OPERATIONS').trim().toUpperCase();
-      const amtRaw = String(r['TOTAL COLLECTION'] || r['MANUAL_COLL'] || 0).replace(/,/g, '').trim();
-      const status = String(r['latest Status'] || 'CLOSED').trim().toUpperCase();
-      const loanNo = String(r['Loan No'] || 'LOAN').trim();
-      const lpDate = String(r['LP DATE'] || '').trim();
+      const agent = String(r['AGENT NAME'] || r['Agent Name'] || r['Agent'] || '').trim().replace(/\b\w/g, (c) => c.toUpperCase());
+      const leader = String(r['TEAM LEADER'] || r['Team Leader'] || 'OPERATIONS').trim().toUpperCase();
+      const amtRaw = String(r['RECD AMT.'] || r['RECD AMT'] || r['TOTAL COLLECTION'] || 0).replace(/,/g, '').trim();
+      const status = String(r['MODE'] || r['STATUS'] || 'RECD').trim().toUpperCase();
+      const loanNo = String(r['LOAN NO'] || r['Loan No'] || 'LOAN').trim();
+      const lpDate = String(r['RECD DATE'] || r['LP DATE'] || '').trim();
       const amt = parseFloat(amtRaw) || 0;
 
       if (agent && amt > 0) {

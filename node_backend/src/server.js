@@ -300,5 +300,5 @@ app.get('/api/debug-sheet', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`[FastPaisa-Node] Express server listening on http://127.0.0.1:${PORT}`);
+  console.log(`[NPA-Dashboard-Node] Express server listening on http://127.0.0.1:${PORT}`);
 });

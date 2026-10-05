@@ -7,8 +7,8 @@ import {
   BarChart, Bar, Area, ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import {
-  filterRows, aggregate, YESTERDAY_STR, AGENTS, META,
-  fmtINR, fmtINRFull, fmtDateShort, fmtMonth, titleCase, round1
+  filterRows, aggregate, YESTERDAY_STR, AGENTS, META, DOMAINS,
+  fmtINR, fmtINRFull, fmtDateShort, fmtMonth, titleCase, round1, DOMAIN_DOT_COLORS
 } from '../utils/data';
 import { Drawer, MiniKpi, SectionLabel } from './AgentDrawer';
 import { useLiveCollection } from '../context/LiveCollectionContext';
@@ -125,10 +125,13 @@ export default function LeaderDrawer({ name, onClose, onOpenAgent }) {
     const empAgg = {};
     rows.forEach((r) => {
       const a = AGENTS[r[0]];
-      if (!empAgg[a]) empAgg[a] = { due: 0, recvd: 0, cases: 0 };
+      if (!empAgg[a]) empAgg[a] = { due: 0, recvd: 0, cases: 0, domains: new Set() };
       empAgg[a].due += r[5];
       empAgg[a].recvd += r[6];
       empAgg[a].cases++;
+      if (r[8] !== undefined && DOMAINS[r[8]]) {
+        empAgg[a].domains.add(DOMAINS[r[8]]);
+      }
     });
     return Object.entries(empAgg).sort((a, b) => b[1].recvd - a[1].recvd);
   }, [rows]);
@@ -225,16 +228,16 @@ export default function LeaderDrawer({ name, onClose, onOpenAgent }) {
   return (
     <Drawer onClose={onClose} isMaximized={isMaximized}>
       {/* Header */}
-      <div className="flex items-start justify-between mb-5 pb-4 border-b border-white/[0.06]">
+      <div className="flex items-start justify-between mb-5 pb-4 border-b border-slate-100">
         <div>
           <div className="flex items-center gap-2 flex-wrap">
-            <h2 className="text-[23px] font-extrabold text-white font-display tracking-tight">{titleCase(name)}</h2>
-            <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-white/[0.08] text-zinc-300 border border-white/[0.08]">
+            <h2 className="text-[23px] font-extrabold text-slate-900 font-display tracking-tight">{titleCase(name)}</h2>
+            <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
               Team Leader
             </span>
           </div>
-          <div className="text-[12px] font-medium text-zinc-400 mt-1 flex items-center gap-1.5">
-            <Users size={13} className="text-[#ff5533]" />
+          <div className="text-[12px] font-medium text-slate-500 mt-1 flex items-center gap-1.5">
+            <Users size={13} className="text-[#ff4d30]" />
             <span>{team.length} agents in team</span>
           </div>
         </div>
@@ -245,7 +248,7 @@ export default function LeaderDrawer({ name, onClose, onOpenAgent }) {
             type="button"
             onClick={() => setIsMaximized((v) => !v)}
             title={isMaximized ? 'Exit Full Screen (Drawer Mode)' : 'Expand to Full Screen'}
-            className="w-8 h-8 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] flex items-center justify-center text-zinc-400 hover:text-white transition-all cursor-pointer"
+            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200/70 border border-slate-200 flex items-center justify-center text-slate-600 hover:text-slate-900 transition-all cursor-pointer"
           >
             {isMaximized ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
           </button>
@@ -253,7 +256,7 @@ export default function LeaderDrawer({ name, onClose, onOpenAgent }) {
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] flex items-center justify-center text-zinc-400 hover:text-white transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200/70 border border-slate-200 flex items-center justify-center text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
           >
             <X size={15} />
           </button>
@@ -261,14 +264,14 @@ export default function LeaderDrawer({ name, onClose, onOpenAgent }) {
       </div>
 
       {/* Date Filter Toolbar */}
-      <div className="bg-[#141520] border border-white/[0.07] rounded-2xl p-3 mb-6 space-y-2.5 shadow-lg">
+      <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-3 mb-6 space-y-2.5 shadow-xs">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-1.5">
-            <CalendarDays size={14} className="text-[#ff5533]" />
-            <span className="text-[11.5px] font-bold text-zinc-300 font-display">Date Filter:</span>
+            <CalendarDays size={14} className="text-[#ff4d30]" />
+            <span className="text-[11.5px] font-bold text-slate-700 font-display">Date Filter:</span>
           </div>
 
-          <div className="flex bg-black/40 border border-white/[0.08] rounded-xl p-0.5 gap-0.5">
+          <div className="flex bg-slate-100 border border-slate-200 rounded-xl p-0.5 gap-0.5">
             <button
               onClick={() => {
                 setFilterMode('month');
@@ -276,8 +279,8 @@ export default function LeaderDrawer({ name, onClose, onOpenAgent }) {
               }}
               className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
                 filterMode === 'month'
-                  ? 'bg-gradient-to-r from-[#ff5e3a] to-[#ff3b30] text-white shadow-[0_0_10px_rgba(255,59,48,0.4)]'
-                  : 'text-zinc-400 hover:text-zinc-200'
+                  ? 'bg-gradient-to-r from-[#ff5e3a] to-[#ff3b30] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               This Month
@@ -289,8 +292,8 @@ export default function LeaderDrawer({ name, onClose, onOpenAgent }) {
               }}
               className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
                 filterMode === 'overall'
-                  ? 'bg-gradient-to-r from-[#ff5e3a] to-[#ff3b30] text-white shadow-[0_0_10px_rgba(255,59,48,0.4)]'
-                  : 'text-zinc-400 hover:text-zinc-200'
+                  ? 'bg-gradient-to-r from-[#ff5e3a] to-[#ff3b30] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               Overall
@@ -299,8 +302,8 @@ export default function LeaderDrawer({ name, onClose, onOpenAgent }) {
               onClick={() => setFilterMode('custom')}
               className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
                 filterMode === 'custom'
-                  ? 'bg-gradient-to-r from-[#ff5e3a] to-[#ff3b30] text-white shadow-[0_0_10px_rgba(255,59,48,0.4)]'
-                  : 'text-zinc-400 hover:text-zinc-200'
+                  ? 'bg-gradient-to-r from-[#ff5e3a] to-[#ff3b30] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               Custom Range
@@ -308,48 +311,48 @@ export default function LeaderDrawer({ name, onClose, onOpenAgent }) {
           </div>
         </div>
 
-        <div className="flex items-center justify-between text-[11px] font-mono text-zinc-400 px-1">
+        <div className="flex items-center justify-between text-[11px] font-mono text-slate-500 px-1">
           <span>Active Period:</span>
           {filterMode === 'month' && (
-            <span className="text-[#ff5533] font-bold">{fmtMonth(latestMonthStr)} (Latest Ledger)</span>
+            <span className="text-[#ff4d30] font-bold">{fmtMonth(latestMonthStr)} (Latest Ledger)</span>
           )}
           {filterMode === 'overall' && (
-            <span className="text-zinc-300 font-medium">
+            <span className="text-slate-700 font-medium">
               Full Dataset ({fmtMonth(earliestMonthStr)} – {fmtMonth(latestMonthStr)})
             </span>
           )}
           {filterMode === 'custom' && (
-            <span className="text-zinc-300 font-medium">
+            <span className="text-slate-700 font-medium">
               {customFrom ? fmtDateShort(customFrom) : 'Start'} to {customTo ? fmtDateShort(customTo) : 'End'}
             </span>
           )}
         </div>
 
         {filterMode === 'custom' && (
-          <div className="flex items-center gap-2 pt-2.5 border-t border-white/[0.06] flex-wrap text-[11.5px] animate-fade-in-up">
-            <div className="flex items-center gap-2 bg-black/40 border border-white/[0.08] px-2.5 py-1.5 rounded-xl">
-              <Calendar size={13} className="text-[#ff5533]" />
-              <span className="text-zinc-400 text-[10.5px] uppercase font-bold">From</span>
+          <div className="flex items-center gap-2 pt-2.5 border-t border-slate-200 flex-wrap text-[11.5px] animate-fade-in-up">
+            <div className="flex items-center gap-2 bg-white border border-slate-200 px-2.5 py-1.5 rounded-xl shadow-xs">
+              <Calendar size={13} className="text-[#ff4d30]" />
+              <span className="text-slate-400 text-[10.5px] uppercase font-bold">From</span>
               <input
                 type="date"
                 value={customFrom}
                 min={META.dateMin}
                 max={META.dateMax}
                 onChange={(e) => setCustomFrom(e.target.value)}
-                className="bg-transparent text-white font-mono text-[11.5px] outline-none cursor-pointer"
+                className="bg-transparent text-slate-800 font-mono text-[11.5px] outline-none cursor-pointer"
               />
             </div>
-            <span className="text-zinc-500 font-bold">to</span>
-            <div className="flex items-center gap-2 bg-black/40 border border-white/[0.08] px-2.5 py-1.5 rounded-xl">
-              <Calendar size={13} className="text-[#ff5533]" />
-              <span className="text-zinc-400 text-[10.5px] uppercase font-bold">To</span>
+            <span className="text-slate-400 font-bold">to</span>
+            <div className="flex items-center gap-2 bg-white border border-slate-200 px-2.5 py-1.5 rounded-xl shadow-xs">
+              <Calendar size={13} className="text-[#ff4d30]" />
+              <span className="text-slate-400 text-[10.5px] uppercase font-bold">To</span>
               <input
                 type="date"
                 value={customTo}
                 min={META.dateMin}
                 max={META.dateMax}
                 onChange={(e) => setCustomTo(e.target.value)}
-                className="bg-transparent text-white font-mono text-[11.5px] outline-none cursor-pointer"
+                className="bg-transparent text-slate-800 font-mono text-[11.5px] outline-none cursor-pointer"
               />
             </div>
             {(customFrom || customTo) && (
@@ -358,7 +361,7 @@ export default function LeaderDrawer({ name, onClose, onOpenAgent }) {
                   setCustomFrom('');
                   setCustomTo('');
                 }}
-                className="text-[11px] text-[#ff5533] hover:text-[#ff3b30] font-semibold ml-auto flex items-center gap-1 cursor-pointer"
+                className="text-[11px] text-[#ff4d30] hover:text-[#e6352b] font-semibold ml-auto flex items-center gap-1 cursor-pointer"
               >
                 Reset Dates
               </button>
@@ -412,31 +415,31 @@ export default function LeaderDrawer({ name, onClose, onOpenAgent }) {
                   <button
                     key={empName}
                     onClick={() => onOpenAgent(empName)}
-                    className="flex items-center justify-between bg-[#141520] hover:bg-[#1a1c2a] border border-white/[0.06] hover:border-white/[0.12] rounded-xl px-3.5 py-2.5 text-left transition-all cursor-pointer group"
+                    className="flex items-center justify-between bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-slate-300 rounded-xl px-3.5 py-2.5 text-left transition-all cursor-pointer group shadow-xs"
                   >
                     <div>
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[13px] font-bold text-white group-hover:text-[#ff5533] transition-colors font-display">
+                        <span className="text-[13px] font-bold text-slate-900 group-hover:text-[#ff4d30] transition-colors font-display">
                           {empName}
                         </span>
                         {aLive?.liveRecvd > 0 && (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-[9.5px] font-mono font-bold text-emerald-400">
-                            <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-100 border border-emerald-200 text-[9.5px] font-mono font-bold text-emerald-800">
+                            <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
                             +{fmtINR(aLive.liveRecvd)}
                           </span>
                         )}
                       </div>
-                      <div className="text-[11px] font-medium text-zinc-500">
+                      <div className="text-[11px] font-medium text-slate-500">
                         {v.cases} cases · <span title={fmtINRFull(v.due)}>{fmtINR(v.due)}</span> due
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-[13px] font-mono font-bold text-white group-hover:text-[#ff5533] transition-colors" title={fmtINRFull(v.recvd)}>
+                      <div className="text-[13px] font-mono font-bold text-slate-900 group-hover:text-[#ff4d30] transition-colors" title={fmtINRFull(v.recvd)}>
                         {fmtINR(v.recvd)}
                       </div>
                       <div
                         className={`text-[11px] font-mono font-semibold ${
-                          pct >= 80 ? 'text-emerald-400' : pct >= 65 ? 'text-amber-400' : 'text-rose-400'
+                          pct >= 80 ? 'text-emerald-700' : pct >= 65 ? 'text-amber-700' : 'text-rose-700'
                         }`}
                       >
                         {pct.toFixed(2)}%
@@ -452,15 +455,15 @@ export default function LeaderDrawer({ name, onClose, onOpenAgent }) {
           {monthlyData.length > 1 && (
             <div>
               <SectionLabel>Team Month-wise Collection</SectionLabel>
-              <div className="bg-[#141520] border border-white/[0.06] rounded-2xl p-4 shadow-md">
+              <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-4 shadow-xs">
                 <ResponsiveContainer width="100%" height={180}>
                   <BarChart data={monthlyData} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
-                    <CartesianGrid vertical={false} stroke="#1f212e" strokeDasharray="3 3" />
-                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#8e99ac' }} axisLine={{ stroke: '#1f212e' }} tickLine={false} />
-                    <YAxis tickFormatter={(v) => fmtINR(v)} tick={{ fontSize: 10, fill: '#8e99ac' }} axisLine={{ stroke: '#1f212e' }} tickLine={false} />
+                    <CartesianGrid vertical={false} stroke="#f1f5f9" strokeDasharray="3 3" />
+                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} tickLine={false} />
+                    <YAxis tickFormatter={(v) => fmtINR(v)} tick={{ fontSize: 10, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} tickLine={false} />
                     <Tooltip content={<LeaderDrawerTooltip />} />
-                    <Bar dataKey="due" name="Due" fill="#242634" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="recvd" name="Recovered" fill="#ff5533" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="due" name="Due" fill="#cbd5e1" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="recvd" name="Recovered" fill="#ff4d30" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -470,19 +473,19 @@ export default function LeaderDrawer({ name, onClose, onOpenAgent }) {
 
         {/* Right Column (7 cols): Big Day-wise Collection Trajectory Module */}
         <div className="lg:col-span-7 space-y-4">
-          <div className="flex items-center justify-between pb-2 border-b border-white/[0.06] flex-wrap gap-2">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-200 flex-wrap gap-2">
             <div className="flex items-center gap-2">
               <TrendingUp size={15} className="text-[#ff5533]" />
               <SectionLabel noMargin>Team Daily Collection Trajectory</SectionLabel>
             </div>
 
-            <div className="flex bg-black/40 border border-white/[0.08] rounded-xl p-0.5 gap-0.5 flex-wrap">
+            <div className="flex bg-slate-100 border border-slate-200 rounded-xl p-0.5 gap-0.5 flex-wrap">
               <button
                 onClick={() => setSelectedTrajMonth('all')}
                 className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold transition-all cursor-pointer ${
                   selectedTrajMonth === 'all'
-                    ? 'bg-gradient-to-r from-[#ff5e3a] to-[#ff3b30] text-white shadow-[0_0_8px_rgba(255,59,48,0.4)]'
-                    : 'text-zinc-400 hover:text-zinc-200'
+                    ? 'bg-gradient-to-r from-[#ff5e3a] to-[#ff3b30] text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 All Months
@@ -493,8 +496,8 @@ export default function LeaderDrawer({ name, onClose, onOpenAgent }) {
                   onClick={() => setSelectedTrajMonth(m)}
                   className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold transition-all cursor-pointer ${
                     selectedTrajMonth === m
-                      ? 'bg-gradient-to-r from-[#ff5e3a] to-[#ff3b30] text-white shadow-[0_0_8px_rgba(255,59,48,0.4)]'
-                      : 'text-zinc-400 hover:text-zinc-200'
+                      ? 'bg-gradient-to-r from-[#ff5e3a] to-[#ff3b30] text-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
                   {fmtMonth(m)}
@@ -503,14 +506,14 @@ export default function LeaderDrawer({ name, onClose, onOpenAgent }) {
             </div>
           </div>
 
-          <div className="bg-[#141520] border border-white/[0.07] rounded-2xl p-4 shadow-xl">
-            <div className="flex items-center justify-between text-[11px] text-zinc-400 mb-3 px-1">
-              <span className="font-display font-semibold text-zinc-300">
+          <div className="bg-slate-50/80 border border-slate-200 rounded-2xl p-4 shadow-sm">
+            <div className="flex items-center justify-between text-[11px] text-slate-500 mb-3 px-1">
+              <span className="font-display font-semibold text-slate-700">
                 Showing {trajectoryData.length} days ({activeMonthLabel})
               </span>
               <div className="flex items-center gap-3">
                 <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2 rounded-sm bg-[#ff5533]/50 border border-[#ff5533]" />
+                  <span className="w-2.5 h-2 rounded-sm bg-[#ff5533]/40 border border-[#ff5533]" />
                   <span>Daily Spike</span>
                 </span>
                 <span className="flex items-center gap-1.5">
@@ -525,22 +528,22 @@ export default function LeaderDrawer({ name, onClose, onOpenAgent }) {
                 <ComposedChart data={trajectoryData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                   <defs>
                     <linearGradient id="leaderCrimsonAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#ff3b30" stopOpacity={0.4} />
+                      <stop offset="5%" stopColor="#ff3b30" stopOpacity={0.25} />
                       <stop offset="95%" stopColor="#ff3b30" stopOpacity={0.0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid vertical={false} stroke="#1f212e" strokeDasharray="3 3" />
+                  <CartesianGrid vertical={false} stroke="#f1f5f9" strokeDasharray="3 3" />
                   <XAxis
                     dataKey="label"
-                    tick={{ fontSize: 9.5, fill: '#8e99ac' }}
-                    axisLine={{ stroke: '#1f212e' }}
+                    tick={{ fontSize: 9.5, fill: '#64748b' }}
+                    axisLine={{ stroke: '#e2e8f0' }}
                     tickLine={false}
                     minTickGap={16}
                   />
                   <YAxis
                     tickFormatter={(v) => fmtINR(v)}
-                    tick={{ fontSize: 10, fill: '#8e99ac' }}
-                    axisLine={{ stroke: '#1f212e' }}
+                    tick={{ fontSize: 10, fill: '#64748b' }}
+                    axisLine={{ stroke: '#e2e8f0' }}
                     tickLine={false}
                   />
                   <Tooltip content={<LeaderTrajectoryTooltip />} />
@@ -548,7 +551,7 @@ export default function LeaderDrawer({ name, onClose, onOpenAgent }) {
                     dataKey="recvd"
                     name="Daily Collected"
                     fill="#ff5533"
-                    fillOpacity={0.38}
+                    fillOpacity={0.28}
                     radius={[3, 3, 0, 0]}
                     maxBarSize={18}
                   />
@@ -559,7 +562,7 @@ export default function LeaderDrawer({ name, onClose, onOpenAgent }) {
                     stroke="#ff3b30"
                     strokeWidth={2.4}
                     fill="url(#leaderCrimsonAreaGrad)"
-                    dot={{ r: 2.5, fill: '#ff3b30', stroke: '#ffffff', strokeWidth: 1 }}
+                    dot={{ r: 2.5, fill: '#ff3b30', stroke: '#ffffff', strokeWidth: 1.5 }}
                     activeDot={{ r: 5.5, fill: '#ff3b30', stroke: '#ffffff', strokeWidth: 2 }}
                   />
                 </ComposedChart>
@@ -568,15 +571,15 @@ export default function LeaderDrawer({ name, onClose, onOpenAgent }) {
           </div>
 
           {/* Total Collection Summary Card */}
-          <div className="p-4 rounded-2xl bg-gradient-to-tr from-[#161826] to-[#12131d] border border-[#ff3b30]/25 shadow-xl">
-            <div className="flex items-center justify-between gap-4 flex-wrap pb-3 border-b border-white/[0.06]">
+          <div className="p-4 rounded-2xl bg-gradient-to-tr from-orange-50/60 via-white to-amber-50/40 border border-orange-200/80 shadow-sm">
+            <div className="flex items-center justify-between gap-4 flex-wrap pb-3 border-b border-slate-200">
               <div>
-                <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 font-display flex items-center gap-1.5">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 font-display flex items-center gap-1.5">
                   <TrendingUp size={12} className="text-[#ff5533]" />
                   <span>Total Collection · {activeMonthLabel}</span>
                 </div>
-                <div className="text-[26px] font-black font-display text-white tracking-tight mt-0.5 flex items-baseline gap-2 flex-wrap">
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-white to-zinc-200">
+                <div className="text-[26px] font-black font-display text-slate-900 tracking-tight mt-0.5 flex items-baseline gap-2 flex-wrap">
+                  <span>
                     {fmtINRFull(trajSummary.totalRecvd)}
                   </span>
                   <span className="text-[14px] font-bold text-[#ff5533] font-mono">
@@ -588,10 +591,10 @@ export default function LeaderDrawer({ name, onClose, onOpenAgent }) {
                 <span
                   className={`text-[11px] font-bold px-3 py-1 rounded-full font-mono border ${
                     trajSummary.recoveryPct >= 80
-                      ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                       : trajSummary.recoveryPct >= 65
-                      ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-                      : 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+                      ? 'bg-amber-50 text-amber-700 border-amber-200'
+                      : 'bg-rose-50 text-rose-700 border-rose-200'
                   }`}
                 >
                   {trajSummary.recoveryPct >= 80 ? 'On track' : trajSummary.recoveryPct >= 65 ? 'Needs review' : 'Below target'}
@@ -601,26 +604,26 @@ export default function LeaderDrawer({ name, onClose, onOpenAgent }) {
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 text-[11.5px]">
               <div>
-                <div className="text-zinc-500 text-[10px] uppercase font-bold">Total Due</div>
-                <div className="font-mono font-bold text-zinc-300 text-[13px] mt-0.5">
+                <div className="text-slate-400 text-[10px] uppercase font-bold">Total Due</div>
+                <div className="font-mono font-bold text-slate-800 text-[13px] mt-0.5">
                   {fmtINR(trajSummary.totalDue)}
                 </div>
               </div>
               <div>
-                <div className="text-zinc-500 text-[10px] uppercase font-bold">Peak Day</div>
-                <div className="font-mono font-bold text-white text-[13px] mt-0.5">
+                <div className="text-slate-400 text-[10px] uppercase font-bold">Peak Day</div>
+                <div className="font-mono font-bold text-slate-800 text-[13px] mt-0.5">
                   {trajSummary.peakDay ? `${fmtDateShort(trajSummary.peakDay.date)} (${fmtINR(trajSummary.peakDay.recvd)})` : '—'}
                 </div>
               </div>
               <div>
-                <div className="text-zinc-500 text-[10px] uppercase font-bold">Daily Average</div>
+                <div className="text-slate-400 text-[10px] uppercase font-bold">Daily Average</div>
                 <div className="font-mono font-bold text-[#ff5533] text-[13px] mt-0.5">
                   {fmtINR(trajSummary.avgDaily)}/day
                 </div>
               </div>
               <div>
-                <div className="text-zinc-500 text-[10px] uppercase font-bold">Active Days</div>
-                <div className="font-mono font-bold text-zinc-200 text-[13px] mt-0.5">
+                <div className="text-slate-400 text-[10px] uppercase font-bold">Active Days</div>
+                <div className="font-mono font-bold text-slate-800 text-[13px] mt-0.5">
                   {trajSummary.activeDays} days
                 </div>
               </div>
@@ -631,7 +634,7 @@ export default function LeaderDrawer({ name, onClose, onOpenAgent }) {
           <div>
             <button
               onClick={() => setShowDayLedger((v) => !v)}
-              className="w-full py-2 px-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] flex items-center justify-between text-[11.5px] font-bold text-zinc-400 hover:text-white transition-all cursor-pointer"
+              className="w-full py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 flex items-center justify-between text-[11.5px] font-bold text-slate-700 hover:text-slate-900 transition-all cursor-pointer shadow-sm"
             >
               <span className="flex items-center gap-2">
                 <BarChart2 size={13} className="text-[#ff5533]" />
@@ -641,9 +644,9 @@ export default function LeaderDrawer({ name, onClose, onOpenAgent }) {
             </button>
 
             {showDayLedger && (
-              <div className="mt-2.5 max-h-[260px] overflow-y-auto scroll-theme border border-white/[0.06] rounded-xl bg-[#12131b] p-2 text-[11px] animate-fade-in-up">
+              <div className="mt-2.5 max-h-[260px] overflow-y-auto scroll-theme border border-slate-200 rounded-xl bg-white p-2 text-[11px] shadow-sm animate-fade-in-up">
                 <table className="w-full text-left">
-                  <thead className="sticky top-0 bg-[#12131b] text-zinc-500 text-[9.5px] uppercase font-bold border-b border-white/[0.06]">
+                  <thead className="sticky top-0 bg-slate-50 text-slate-500 text-[9.5px] uppercase font-bold border-b border-slate-200">
                     <tr>
                       <th className="pb-2 px-2">Date</th>
                       <th className="pb-2 px-2">Cases</th>
@@ -652,30 +655,30 @@ export default function LeaderDrawer({ name, onClose, onOpenAgent }) {
                       <th className="pb-2 px-2">Recovery %</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/[0.03]">
+                  <tbody className="divide-y divide-slate-100">
                     {trajectoryData.map((d) => (
                       <tr
                         key={d.date}
-                        className={d.isLive ? 'bg-emerald-500/[0.08] hover:bg-emerald-500/[0.12]' : 'hover:bg-white/[0.02]'}
+                        className={d.isLive ? 'bg-emerald-50/70 hover:bg-emerald-50' : 'hover:bg-slate-50/70'}
                       >
-                        <td className="py-2 px-2 font-mono text-zinc-300 font-semibold flex items-center gap-1.5">
+                        <td className="py-2 px-2 font-mono text-slate-800 font-semibold flex items-center gap-1.5">
                           {d.date}
                           {d.isLive && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-[9px] font-mono font-bold text-emerald-400">
-                              <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-emerald-100 border border-emerald-300 text-[9px] font-mono font-bold text-emerald-700">
+                              <span className="w-1 h-1 rounded-full bg-emerald-600 animate-pulse" />
                               LIVE TODAY
                             </span>
                           )}
                         </td>
-                        <td className="py-2 px-2 font-mono text-zinc-400">{d.cases}</td>
-                        <td className="py-2 px-2 font-mono text-zinc-400">{fmtINR(d.due)}</td>
-                        <td className={`py-2 px-2 font-mono font-bold ${d.isLive ? 'text-emerald-400 font-extrabold' : 'text-white'}`}>
+                        <td className="py-2 px-2 font-mono text-slate-600">{d.cases}</td>
+                        <td className="py-2 px-2 font-mono text-slate-600">{fmtINR(d.due)}</td>
+                        <td className={`py-2 px-2 font-mono font-bold ${d.isLive ? 'text-emerald-700 font-extrabold' : 'text-slate-900'}`}>
                           {fmtINR(d.recvd)}
                         </td>
                         <td className="py-2 px-2">
                           <span
                             className={`font-mono font-bold ${
-                              d.pct >= 80 ? 'text-emerald-400' : d.pct >= 65 ? 'text-amber-400' : 'text-rose-400'
+                              d.pct >= 80 ? 'text-emerald-600' : d.pct >= 65 ? 'text-amber-600' : 'text-rose-600'
                             }`}
                           >
                             {d.pct.toFixed(2)}%
@@ -697,13 +700,13 @@ export default function LeaderDrawer({ name, onClose, onOpenAgent }) {
 function LeaderDrawerTooltip({ active, payload, label }) {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-[#181924]/95 border border-white/10 rounded-xl p-2.5 shadow-2xl backdrop-blur-md text-white text-[11px]">
-        {label && <div className="font-bold text-zinc-400 mb-1 font-display">{label}</div>}
+      <div className="bg-white/95 border border-slate-200 rounded-xl p-2.5 shadow-xl backdrop-blur-md text-slate-800 text-[11px]">
+        {label && <div className="font-bold text-slate-500 mb-1 font-display">{label}</div>}
         {payload.map((item, index) => (
           <div key={index} className="flex items-center gap-1.5 py-0.5">
             <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: item.color || item.fill || '#ff3b30' }} />
-            <span className="text-zinc-400">{item.name}:</span>
-            <span className="font-mono font-bold text-white">{fmtINRFull(item.value)}</span>
+            <span className="text-slate-500">{item.name}:</span>
+            <span className="font-mono font-bold text-slate-900">{fmtINRFull(item.value)}</span>
           </div>
         ))}
       </div>
@@ -716,37 +719,37 @@ function LeaderTrajectoryTooltip({ active, payload }) {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
     return (
-      <div className="bg-[#161724]/95 border border-white/15 rounded-xl p-3 shadow-2xl backdrop-blur-md text-white text-[11.5px] min-w-[170px]">
-        <div className="font-bold text-zinc-300 font-display pb-1.5 mb-1.5 border-b border-white/10 flex items-center justify-between">
+      <div className="bg-white/95 border border-slate-200 rounded-xl p-3 shadow-xl backdrop-blur-md text-slate-800 text-[11.5px] min-w-[170px]">
+        <div className="font-bold text-slate-700 font-display pb-1.5 mb-1.5 border-b border-slate-100 flex items-center justify-between">
           <span>{data.date}</span>
           <span
-            className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
+            className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full border ${
               data.pct >= 80
-                ? 'bg-emerald-500/20 text-emerald-400'
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                 : data.pct >= 65
-                ? 'bg-amber-500/20 text-amber-300'
-                : 'bg-rose-500/20 text-rose-400'
+                ? 'bg-amber-50 text-amber-700 border-amber-200'
+                : 'bg-rose-50 text-rose-700 border-rose-200'
             }`}
           >
             {data.pct.toFixed(2)}%
           </span>
         </div>
         <div className="space-y-1 text-[11px]">
-          <div className="flex justify-between text-zinc-400">
+          <div className="flex justify-between text-slate-500">
             <span>Collected:</span>
             <span className="font-mono font-bold text-[#ff5533]">{fmtINRFull(data.recvd)}</span>
           </div>
-          <div className="flex justify-between text-zinc-400">
+          <div className="flex justify-between text-slate-500">
             <span>Repay Due:</span>
-            <span className="font-mono text-zinc-300">{fmtINRFull(data.due)}</span>
+            <span className="font-mono text-slate-700">{fmtINRFull(data.due)}</span>
           </div>
-          <div className="flex justify-between text-zinc-400">
+          <div className="flex justify-between text-slate-500">
             <span>Cases:</span>
-            <span className="font-mono font-semibold text-white">{data.cases}</span>
+            <span className="font-mono font-semibold text-slate-900">{data.cases}</span>
           </div>
-          <div className="flex justify-between text-zinc-500 pt-1 border-t border-white/[0.06] text-[10px]">
+          <div className="flex justify-between text-slate-400 pt-1 border-t border-slate-100 text-[10px]">
             <span>Cumulative:</span>
-            <span className="font-mono text-zinc-300">{fmtINR(data.cumulative)}</span>
+            <span className="font-mono text-slate-700">{fmtINR(data.cumulative)}</span>
           </div>
         </div>
       </div>
@@ -754,3 +757,4 @@ function LeaderTrajectoryTooltip({ active, payload }) {
   }
   return null;
 }
+

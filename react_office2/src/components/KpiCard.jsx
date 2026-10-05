@@ -16,29 +16,34 @@ export default function KpiCard({
 }) {
   const toneMap = {
     default: {
-      icon: 'text-zinc-400 bg-white/[0.03] border-white/[0.06]',
-      badge: 'text-zinc-400 bg-white/[0.04] border-white/[0.07]',
-      cardBorder: 'hover:border-white/20',
+      icon: 'text-slate-600 bg-slate-100 border-slate-200',
+      badge: 'text-slate-600 bg-slate-100 border-slate-200',
+      cardBorder: 'hover:border-slate-300',
     },
     brand: {
-      icon: 'text-[#ff6b4a] bg-[#ff5533]/10 border-[#ff5533]/20',
-      badge: 'text-[#ff6b4a] bg-[#ff5533]/10 border-[#ff5533]/20',
-      cardBorder: 'hover:border-[#ff5533]/30',
+      icon: 'text-[#ff4d30] bg-orange-50 border-orange-200',
+      badge: 'text-[#ff4d30] bg-orange-50 border-orange-200',
+      cardBorder: 'hover:border-orange-300',
     },
     warn: {
-      icon: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
-      badge: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
-      cardBorder: 'hover:border-amber-500/30',
+      icon: 'text-amber-600 bg-amber-50 border-amber-200',
+      badge: 'text-amber-700 bg-amber-50 border-amber-200',
+      cardBorder: 'hover:border-amber-300',
     },
     danger: {
-      icon: 'text-rose-400 bg-rose-500/10 border-rose-500/20',
-      badge: 'text-rose-400 bg-rose-500/10 border-rose-500/20',
-      cardBorder: 'hover:border-rose-500/30',
+      icon: 'text-rose-600 bg-rose-50 border-rose-200',
+      badge: 'text-rose-700 bg-rose-50 border-rose-200',
+      cardBorder: 'hover:border-rose-300',
     },
     live: {
-      icon: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
-      badge: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/25',
-      cardBorder: 'border-emerald-500/20 hover:border-emerald-500/40',
+      icon: 'text-emerald-600 bg-emerald-50 border-emerald-200',
+      badge: 'text-emerald-700 bg-emerald-50 border-emerald-200',
+      cardBorder: 'border-emerald-200 hover:border-emerald-300',
+    },
+    neutral: {
+      icon: 'text-indigo-600 bg-indigo-50 border-indigo-200',
+      badge: 'text-indigo-700 bg-indigo-50 border-indigo-200',
+      cardBorder: 'hover:border-indigo-300',
     },
   };
 
@@ -51,7 +56,7 @@ export default function KpiCard({
       transition={{ duration: 0.3, delay: index * 0.03, ease: [0.16, 1, 0.3, 1] }}
       whileHover={{ y: -2 }}
       onClick={onClick}
-      className={`group relative bg-[#0e1018]/50 hover:bg-[#131622]/75 backdrop-blur-xl border border-white/[0.06] ${t.cardBorder} rounded-2xl p-4 sm:p-4.5 transition-all shadow-lg flex flex-col justify-between ${
+      className={`group relative bg-white hover:bg-slate-50/60 backdrop-blur-xl border border-slate-200/90 ${t.cardBorder} rounded-2xl p-4 sm:p-4.5 transition-all shadow-sm hover:shadow-md flex flex-col justify-between ${
         onClick ? 'cursor-pointer' : ''
       }`}
     >
@@ -63,18 +68,18 @@ export default function KpiCard({
               <Icon size={13} strokeWidth={2.2} />
             </div>
           )}
-          <span className="text-[12px] font-medium text-zinc-400 tracking-normal truncate" title={label}>
+          <span className="text-[12px] font-semibold text-slate-500 tracking-normal truncate" title={label}>
             {label}
           </span>
         </div>
 
         {tone === 'live' ? (
-          <span className="inline-flex items-center gap-1.5 text-[10px] sm:text-[10.5px] font-mono font-medium text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/25 shrink-0">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="inline-flex items-center gap-1.5 text-[10px] sm:text-[10.5px] font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 shrink-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             {trend || 'Live'}
           </span>
         ) : trend ? (
-          <span className={`text-[10px] sm:text-[10.5px] font-mono font-medium px-2 py-0.5 rounded-full border shrink-0 ${t.badge}`}>
+          <span className={`text-[10px] sm:text-[10.5px] font-mono font-bold px-2 py-0.5 rounded-full border shrink-0 ${t.badge}`}>
             {trend}
           </span>
         ) : null}
@@ -82,7 +87,7 @@ export default function KpiCard({
 
       {/* Main Metric Value */}
       <div className="mt-3">
-        <div className="text-[23px] sm:text-[25px] xl:text-[26px] font-bold text-white tracking-tight font-display leading-tight truncate">
+        <div className="text-[23px] sm:text-[25px] xl:text-[26px] font-bold text-slate-900 tracking-tight font-display leading-tight truncate">
           {raw !== undefined ? <AnimatedNumber value={raw} format={format} /> : value}
         </div>
 
@@ -90,10 +95,10 @@ export default function KpiCard({
         {dateRange && (
           <div className={`inline-flex items-center gap-1.5 text-[10.5px] font-mono font-semibold px-2 py-0.5 rounded-md mt-1.5 border ${
             tone === 'live'
-              ? 'text-emerald-300 bg-emerald-500/15 border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.15)]'
+              ? 'text-emerald-800 bg-emerald-50 border-emerald-200 shadow-xs'
               : tone === 'brand'
-              ? 'text-[#ff7a5c] bg-[#ff5533]/15 border-[#ff5533]/30 shadow-[0_0_10px_rgba(255,85,51,0.15)]'
-              : 'text-zinc-300 bg-white/[0.04] border-white/[0.08]'
+              ? 'text-[#c23b22] bg-orange-50 border-orange-200 shadow-xs'
+              : 'text-slate-700 bg-slate-100 border-slate-200'
           }`}>
             <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse shrink-0" />
             <span className="truncate">{dateRange}</span>
@@ -102,7 +107,7 @@ export default function KpiCard({
 
         {/* Subtitle / Context */}
         {sub && (
-          <div className="text-[11px] font-normal text-zinc-500 mt-1 truncate" title={sub}>
+          <div className="text-[11px] font-medium text-slate-400 mt-1 truncate" title={sub}>
             {sub}
           </div>
         )}

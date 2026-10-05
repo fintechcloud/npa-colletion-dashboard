@@ -10,13 +10,13 @@
   --color-brand-600: #e6352b;
   --color-brand-700: #cc2a21;
 
-  --color-canvas: #090a0f;
-  --color-surface: #12131a;
-  --color-surface-card: #14151e;
-  --color-surface-hover: #1c1d27;
+  --color-canvas: #f8fafc;
+  --color-surface: #ffffff;
+  --color-surface-card: #ffffff;
+  --color-surface-hover: #f1f5f9;
   
-  --color-ink-900: #090a0f;
-  --color-ink-800: #12131a;
+  --color-ink-900: #0f172a;
+  --color-ink-800: #1e293b;
 }
 
 html, body, #root { 
@@ -29,8 +29,8 @@ body {
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   letter-spacing: -0.01em;
-  background: transparent;
-  color: #f3f4f6;
+  background: #f8fafc;
+  color: #0f172a;
 }
 
 .font-display {
@@ -51,20 +51,20 @@ body {
   background: transparent; 
 }
 ::-webkit-scrollbar-thumb { 
-  background: rgba(255, 255, 255, 0.14); 
+  background: rgba(148, 163, 184, 0.35); 
   border-radius: 9999px; 
 }
 ::-webkit-scrollbar-thumb:hover { 
-  background: rgba(255, 255, 255, 0.24); 
+  background: rgba(148, 163, 184, 0.6); 
 }
 
-/* Custom cyber-fintech scrollbar matching Vaulto theme */
+/* Custom fintech scrollbar */
 .scroll-theme::-webkit-scrollbar {
   width: 5px;
   height: 5px;
 }
 .scroll-theme::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(0, 0, 0, 0.02);
   border-radius: 9999px;
 }
 .scroll-theme::-webkit-scrollbar-thumb {
@@ -96,7 +96,7 @@ body {
   animation: fadeInUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* Subtle enterprise shake animation for login error feedback */
+/* Subtle enterprise shake animation */
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
   20%, 60% { transform: translateX(-6px); }
@@ -106,46 +106,49 @@ body {
   animation: shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
 }
 
-/* Glassmorphism surfaces matching Vaulto reference */
+/* Glassmorphism surfaces for light theme */
 .glass-panel {
-  background: rgba(14, 16, 26, 0.48);
+  background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.35), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05), inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
 }
 
 .glass-panel-interactive {
-  background: rgba(14, 16, 26, 0.48);
+  background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  box-shadow: 0 8px 24px 0 rgba(0, 0, 0, 0.3), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.04), inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .glass-panel-interactive:hover {
-  background: rgba(20, 23, 38, 0.65);
-  border-color: rgba(255, 255, 255, 0.18);
-  box-shadow: 0 12px 36px 0 rgba(0, 0, 0, 0.45), inset 0 1px 0 0 rgba(255, 255, 255, 0.14);
+  background: #ffffff;
+  border-color: rgba(203, 213, 225, 1);
+  box-shadow: 0 12px 28px -4px rgba(0, 0, 0, 0.08), inset 0 1px 0 0 rgba(255, 255, 255, 1);
   transform: translateY(-2px);
 }
 
-/* Neon glow classes */
+/* Glow classes */
 .glow-red {
-  box-shadow: 0 0 24px -4px rgba(255, 59, 48, 0.45);
+  box-shadow: 0 0 24px -4px rgba(255, 59, 48, 0.3);
 }
 
 .glow-red-sm {
-  box-shadow: 0 0 12px -2px rgba(255, 59, 48, 0.35);
+  box-shadow: 0 0 12px -2px rgba(255, 59, 48, 0.25);
 }
 
 .glow-green-sm {
-  box-shadow: 0 0 12px -2px rgba(16, 185, 129, 0.35);
+  box-shadow: 0 0 12px -2px rgba(16, 185, 129, 0.25);
 }
 
-/* Custom dark date picker indicator */
+/* Light date picker indicator */
 input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: invert(0.8) brightness(1.2);
+  opacity: 0.6;
   cursor: pointer;
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
 }

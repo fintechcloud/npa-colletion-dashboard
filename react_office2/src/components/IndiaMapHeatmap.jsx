@@ -53,10 +53,10 @@ export default function IndiaMapHeatmap({
     if (onHoverState) onHoverState(null);
   };
 
-  // Choropleth color computation matching dark cyber-fintech theme
+  // Choropleth color computation matching light executive fintech theme
   const getFillColor = (stateId) => {
     const data = dataMap[stateId];
-    if (!data || !data.cases) return '#141522';
+    if (!data || !data.cases) return '#e2e8f0';
 
     const val = data[metric] || 0;
     const ratio = Math.min(Math.max(val / maxVal, 0), 1);
@@ -64,17 +64,17 @@ export default function IndiaMapHeatmap({
     if (metric === 'pct') {
       if (data.pct >= 80) return `rgba(16, 185, 129, ${0.45 + Math.min((data.pct - 80) / 20, 1) * 0.45})`;
       if (data.pct >= 65) return `rgba(245, 158, 11, ${0.45 + ((data.pct - 65) / 15) * 0.45})`;
-      return `rgba(255, 59, 48, ${0.45 + Math.min(Math.max((65 - data.pct) / 25, 0), 1) * 0.45})`;
+      return `rgba(239, 68, 68, ${0.45 + Math.min(Math.max((65 - data.pct) / 25, 0), 1) * 0.45})`;
     }
 
-    // Collected & Cases: Hot cyber-crimson theme gradient matching Vaulto UI
+    // Collected & Cases: Hot crimson/coral gradient on clean light canvas
     if (ratio > 0.8) return '#ff3b30';
-    if (ratio > 0.6) return '#e63228';
-    if (ratio > 0.4) return '#b82329';
-    if (ratio > 0.22) return '#7d1824';
-    if (ratio > 0.1) return '#4a141e';
-    if (ratio > 0.02) return '#281219';
-    return '#1c1218';
+    if (ratio > 0.6) return '#ff5533';
+    if (ratio > 0.4) return '#ff7a5c';
+    if (ratio > 0.22) return '#ffaa99';
+    if (ratio > 0.1) return '#ffd0c7';
+    if (ratio > 0.02) return '#fbe6e3';
+    return '#f1f5f9';
   };
 
   return (
@@ -82,7 +82,7 @@ export default function IndiaMapHeatmap({
       {/* Top Controls: Metric Switcher & Heatmap Legend */}
       <div className="w-full flex items-center justify-between gap-3 mb-3 flex-wrap text-[11.5px]">
         {/* Metric Selector */}
-        <div className="flex bg-black/40 border border-white/[0.08] rounded-xl p-0.5 gap-0.5">
+        <div className="flex bg-slate-100 border border-slate-200 rounded-xl p-0.5 gap-0.5">
           {[
             ['recvd', 'Collected'],
             ['pct', 'Recovery %'],
@@ -93,8 +93,8 @@ export default function IndiaMapHeatmap({
               onClick={() => setMetric(val)}
               className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
                 metric === val
-                  ? 'bg-gradient-to-r from-[#ff5e3a] to-[#ff3b30] text-white shadow-[0_0_12px_rgba(255,59,48,0.5)]'
-                  : 'text-zinc-400 hover:text-zinc-200'
+                  ? 'bg-gradient-to-r from-[#ff5e3a] to-[#ff3b30] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               {label}
@@ -103,13 +103,13 @@ export default function IndiaMapHeatmap({
         </div>
 
         {/* Intensity Legend matching theme */}
-        <div className="flex items-center gap-2 text-zinc-400 font-medium">
+        <div className="flex items-center gap-2 text-slate-500 font-medium">
           <span className="text-[10.5px]">Low</span>
           <div
-            className={`w-24 h-2 rounded-full border border-white/10 transition-all ${
+            className={`w-24 h-2 rounded-full border border-slate-200 transition-all ${
               metric === 'pct'
-                ? 'bg-gradient-to-r from-[#ff3b30] via-[#f59e0b] to-[#10b981]'
-                : 'bg-gradient-to-r from-[#281219] via-[#b82329] to-[#ff3b30]'
+                ? 'bg-gradient-to-r from-[#ef4444] via-[#f59e0b] to-[#10b981]'
+                : 'bg-gradient-to-r from-[#ffd0c7] via-[#ff7a5c] to-[#ff3b30]'
             }`}
           />
           <span className="text-[10.5px]">High</span>
@@ -120,14 +120,14 @@ export default function IndiaMapHeatmap({
       <div className="relative w-full max-w-[480px] aspect-[612/696] my-1">
         <svg
           viewBox="0 0 612 696"
-          className="w-full h-full filter drop-shadow-[0_8px_24px_rgba(0,0,0,0.5)] select-none"
+          className="w-full h-full filter drop-shadow-[0_4px_16px_rgba(0,0,0,0.06)] select-none"
         >
           <defs>
             <filter id="hover-glow" x="-20%" y="-20%" width="140%" height="140%">
-              <feDropShadow dx="0" dy="0" stdDeviation="5" floodColor="#ff3b30" floodOpacity="0.8" />
+              <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor="#ff3b30" floodOpacity="0.5" />
             </filter>
             <filter id="selected-glow" x="-20%" y="-20%" width="140%" height="140%">
-              <feDropShadow dx="0" dy="0" stdDeviation="7" floodColor="#ff5533" floodOpacity="0.9" />
+              <feDropShadow dx="0" dy="0" stdDeviation="5" floodColor="#ff5533" floodOpacity="0.6" />
             </filter>
           </defs>
 
@@ -143,7 +143,7 @@ export default function IndiaMapHeatmap({
                   id={p.id}
                   d={p.d}
                   fill={isSelected ? '#ff3b30' : fillColor}
-                  stroke={isSelected ? '#ffffff' : isHovered ? '#ff5533' : 'rgba(255, 255, 255, 0.12)'}
+                  stroke={isSelected ? '#ffffff' : isHovered ? '#ff5533' : '#cbd5e1'}
                   strokeWidth={isSelected ? 2.5 : isHovered ? 2 : 0.8}
                   strokeLinejoin="round"
                   className="transition-all duration-150 cursor-pointer"
@@ -157,7 +157,7 @@ export default function IndiaMapHeatmap({
           </g>
         </svg>
 
-        {/* Floating Dark Glass Tooltip matching Vaulto aesthetic */}
+        {/* Floating Light Glass Tooltip matching executive aesthetic */}
         {internalHover && (
           <div
             className="absolute pointer-events-none z-30 transition-all duration-75"
@@ -166,17 +166,17 @@ export default function IndiaMapHeatmap({
               top: `${Math.max(tooltipPos.y - 80, 10)}px`,
             }}
           >
-            <div className="bg-[#12131b]/95 backdrop-blur-xl border border-white/15 rounded-xl p-3 shadow-2xl min-w-[170px] text-white">
-              <div className="text-[13px] font-bold font-display text-white border-b border-white/10 pb-1.5 mb-1.5 flex items-center justify-between">
+            <div className="bg-white/95 backdrop-blur-xl border border-slate-200 rounded-xl p-3 shadow-xl min-w-[170px] text-slate-800">
+              <div className="text-[13px] font-bold font-display text-slate-900 border-b border-slate-100 pb-1.5 mb-1.5 flex items-center justify-between">
                 <span>{internalHover.name}</span>
                 {internalHover.pct !== undefined && (
                   <span
-                    className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${
+                    className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full font-bold ${
                       internalHover.pct >= 70
-                        ? 'bg-emerald-500/20 text-emerald-300'
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                         : internalHover.pct >= 60
-                        ? 'bg-amber-500/20 text-amber-300'
-                        : 'bg-rose-500/20 text-rose-300'
+                        ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                        : 'bg-rose-50 text-rose-700 border border-rose-200'
                     }`}
                   >
                     {internalHover.pct}%
@@ -184,17 +184,17 @@ export default function IndiaMapHeatmap({
                 )}
               </div>
               <div className="space-y-1 text-[11.5px]">
-                <div className="flex justify-between text-zinc-400">
+                <div className="flex justify-between text-slate-400">
                   <span>Cases:</span>
-                  <span className="font-mono font-bold text-white">{internalHover.cases || 0}</span>
+                  <span className="font-mono font-bold text-slate-800">{internalHover.cases || 0}</span>
                 </div>
-                <div className="flex justify-between text-zinc-400">
+                <div className="flex justify-between text-slate-400">
                   <span>Disbursed:</span>
-                  <span className="font-mono text-zinc-300">{fmtINR(internalHover.due || 0)}</span>
+                  <span className="font-mono text-slate-600">{fmtINR(internalHover.due || 0)}</span>
                 </div>
-                <div className="flex justify-between text-zinc-400">
+                <div className="flex justify-between text-slate-400">
                   <span>Collected:</span>
-                  <span className="font-mono font-bold text-[#ff5533]">{fmtINR(internalHover.recvd || 0)}</span>
+                  <span className="font-mono font-bold text-[#ff4d30]">{fmtINR(internalHover.recvd || 0)}</span>
                 </div>
               </div>
             </div>
