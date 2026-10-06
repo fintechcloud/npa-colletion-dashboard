@@ -7,11 +7,11 @@ import {
   BarChart, Bar, Area, ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import {
-  filterRows, aggregate, YESTERDAY_STR, AGENTS, META, DOMAINS,
-  fmtINR, fmtINRFull, fmtDateShort, fmtMonth, titleCase, round1, DOMAIN_DOT_COLORS,
+  filterRows, aggregate, YESTERDAY_STR, AGENTS, META, DOMAINS, TODAY_STR,
+  fmtINR, fmtINRFull, fmtDateShort, fmtMonth, titleCase, round1, DOMAIN_DOT_COLORS, dateToOffset,
   getLeaderDomainsDetailed, offsetToStr,
 } from '../utils/data';
-import { Drawer, MiniKpi, SectionLabel } from './AgentDrawer';
+import { Drawer, MiniKpi, SectionLabel, AgentPortfolioTable as PortfolioTable } from './AgentDrawer';
 import { useLiveCollection } from '../context/LiveCollectionContext';
 
 export default function LeaderDrawer({ name, onClose, onOpenAgent }) {
@@ -278,6 +278,68 @@ export default function LeaderDrawer({ name, onClose, onOpenAgent }) {
         ? fmtMonth(latestMonthStr)
         : 'All Months'
       : fmtMonth(selectedTrajMonth);
+
+  const leaderDomainBreakdown = useMemo(() => {
+    const map = {};
+    let allCases = 0, allDue = 0, allRecvd = 0, allPrincipal = 0;
+    
+    const targetTodayStr = META.today || TODAY_STR;
+    const targetYdayStr = YESTERDAY_STR;
+    const todayOff = targetTodayStr ? dateToOffset(targetTodayStr) : -9999;
+    const ydayOff = targetYdayStr ? dateToOffset(targetYdayStr) : -9999;
+
+    let allToday = 0, allYday = 0, allSep = 0;
+
+    for (const r of rows) {
+      const dName = r[8] !== undefined && DOMAINS[r[8]] ? DOMAINS[r[8]] : 'Unknown';
+      if (!map[dName]) {
+        map[dName] = { name: dName, cases: 0, due: 0, recvd: 0, principal: 0, todayLive: 0, yesterday: 0, sep2026Recvd: 0 };
+      }
+      map[dName].cases++;
+      map[dName].due += (r[5] || 0);
+      map[dName].recvd += (r[6] || 0);
+      map[dName].principal += (r[9] || 0);
+      
+      const recOff = (r[13] !== undefined && r[13] >= 0) ? r[13] : r[4];
+      if (recOff === todayOff) map[dName].todayLive += (r[6] || 0);
+      if (recOff === ydayOff) map[dName].yesterday += (r[6] || 0);
+      
+      const recMonth = r[12];
+      if (recMonth && String(recMonth).toLowerCase().includes('sep') && String(recMonth).includes('2026')) {
+        map[dName].sep2026Recvd += (r[6] || 0);
+      }
+      
+      allCases++;
+      allDue += (r[5] || 0);
+      allRecvd += (r[6] || 0);
+      allPrincipal += (r[9] || 0);
+      if (recOff === todayOff) allToday += (r[6] || 0);
+      if (recOff === ydayOff) allYday += (r[6] || 0);
+      if (recMonth && String(recMonth).toLowerCase().includes('sep') && String(recMonth).includes('2026')) {
+        allSep += (r[6] || 0);
+      }
+    }
+    
+    const domainArray = Object.values(map).map(d => ({
+       ...d,
+       pending: d.due - d.recvd,
+       pct: d.due ? (d.recvd / d.due) * 100 : 0
+    })).sort((a, b) => b.due - a.due);
+    
+    const all = {
+       cases: allCases,
+       due: allDue,
+       recvd: allRecvd,
+       principal: allPrincipal,
+       pending: allDue - allRecvd,
+       todayLive: allToday,
+       yesterday: allYday,
+       sep2026Recvd: allSep,
+       pct: allDue ? (allRecvd / allDue) * 100 : 0
+    };
+    
+    return { domainArray, all };
+  }, [rows, META.today]);
 
   return (
     <Drawer onClose={onClose} isMaximized={isMaximized}>
@@ -820,6 +882,9 @@ export default function LeaderDrawer({ name, onClose, onOpenAgent }) {
           </div>
         </div>
       </div>
+
+      {/* Portfolio by Brand Full-Width Table */}
+      <PortfolioTable data={leaderDomainBreakdown} />
     </Drawer>
   );
 }
