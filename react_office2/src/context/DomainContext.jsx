@@ -6,20 +6,30 @@ const DomainContext = createContext(null);
 
 export function DomainProvider({ children }) {
   const { dataRevision } = useLiveCollection();
-  const [selectedDomain, setSelectedDomainState] = useState('All Domains');
+  const [selectedDomains, setSelectedDomainsState] = useState(new Set());
 
-  // Toggle or set domain: clicking active domain toggles it off back to 'All Domains'
-  const setSelectedDomain = useCallback((domain) => {
-    setSelectedDomainState((curr) => {
-      if (curr === domain && domain !== 'All Domains') {
-        return 'All Domains';
+  // Toggle domain
+  const toggleDomain = useCallback((domain) => {
+    if (domain === 'All Domains') {
+      setSelectedDomainsState(new Set());
+      return;
+    }
+    setSelectedDomainsState((prev) => {
+      const next = new Set(prev);
+      if (next.has(domain)) {
+        next.delete(domain);
+      } else {
+        next.add(domain);
       }
-      return domain || 'All Domains';
+      return next;
     });
   }, []);
+  
+  // Kept for compatibility if some component calls it directly
+  const setSelectedDomain = toggleDomain;
 
   const clearDomain = useCallback(() => {
-    setSelectedDomainState('All Domains');
+    setSelectedDomainsState(new Set());
   }, []);
 
   // Compute live case counts per domain from current loaded CASES
@@ -45,49 +55,57 @@ export function DomainProvider({ children }) {
     return list;
   }, [CASES.length, DOMAINS, dataRevision]);
 
-  // Leaders who actually have assigned cases in the given domain
-  const getAvailableLeaders = useCallback((domain) => {
-    const activeD = domain || selectedDomain;
-    if (!activeD || activeD === 'All Domains') {
+  // Leaders who actually have assigned cases in the selected domains
+  const getAvailableLeaders = useCallback(() => {
+    if (selectedDomains.size === 0) {
       return LEADERS;
     }
-    const dI = DOMAINS.indexOf(activeD);
-    if (dI < 0) return LEADERS;
+    const dIndices = new Set(
+      Array.from(selectedDomains)
+        .map(d => DOMAINS.indexOf(d))
+        .filter(idx => idx >= 0)
+    );
+    if (dIndices.size === 0) return LEADERS;
 
     const leaderIndices = new Set();
     for (const r of CASES) {
-      if (r[8] === dI) {
+      if (r[8] !== undefined && dIndices.has(r[8])) {
         leaderIndices.add(r[1]);
       }
     }
     return LEADERS.filter((_, idx) => leaderIndices.has(idx));
-  }, [selectedDomain, DOMAINS, LEADERS, CASES.length, dataRevision]);
+  }, [selectedDomains, DOMAINS, LEADERS, CASES.length, dataRevision]);
 
-  // Agents who actually have assigned cases in the given domain & leader
-  const getAvailableAgents = useCallback((domain, leader = '') => {
-    const activeD = domain || selectedDomain;
-    const dI = activeD && activeD !== 'All Domains' ? DOMAINS.indexOf(activeD) : -1;
+  // Agents who actually have assigned cases in the given domains & leader
+  const getAvailableAgents = useCallback((leader = '') => {
     const lI = leader ? LEADERS.indexOf(leader) : -1;
+    const dIndices = new Set(
+      Array.from(selectedDomains)
+        .map(d => DOMAINS.indexOf(d))
+        .filter(idx => idx >= 0)
+    );
 
     const agentIndices = new Set();
     for (const r of CASES) {
-      if (dI >= 0 && r[8] !== dI) continue;
+      if (selectedDomains.size > 0 && r[8] !== undefined && !dIndices.has(r[8])) continue;
       if (lI >= 0 && r[1] !== lI) continue;
       agentIndices.add(r[0]);
     }
     return AGENTS.filter((_, idx) => agentIndices.has(idx));
-  }, [selectedDomain, DOMAINS, LEADERS, AGENTS, CASES.length, dataRevision]);
+  }, [selectedDomains, DOMAINS, LEADERS, AGENTS, CASES.length, dataRevision]);
 
   const value = useMemo(() => ({
-    selectedDomain,
+    selectedDomains,
+    toggleDomain,
     setSelectedDomain,
     clearDomain,
-    isDomainActive: selectedDomain !== 'All Domains',
+    isDomainActive: selectedDomains.size > 0,
     domainListWithCounts,
     getAvailableLeaders,
     getAvailableAgents,
   }), [
-    selectedDomain,
+    selectedDomains,
+    toggleDomain,
     setSelectedDomain,
     clearDomain,
     domainListWithCounts,

@@ -19,7 +19,7 @@ const VIEW_MODES = [
   { key: 'daily', label: 'Daily Spline', icon: Layers, hint: 'Detailed day-by-day view' },
 ];
 
-export default function CollectionTrendChart({ agg, selectedDomain }) {
+export default function CollectionTrendChart({ agg, selectedDomains }) {
   const [viewMode, setViewMode] = useState('weekly');
   const [dailyRange, setDailyRange] = useState(30);
 
@@ -139,7 +139,7 @@ export default function CollectionTrendChart({ agg, selectedDomain }) {
               Collection Trend &amp; Trajectory
             </h3>
             <span className="text-[11px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200/60">
-              {selectedDomain}
+              {selectedDomains.size > 0 ? Array.from(selectedDomains).join(", ") : "All Domains"}
             </span>
           </div>
           <p className="text-[11.5px] text-slate-500 mt-0.5">

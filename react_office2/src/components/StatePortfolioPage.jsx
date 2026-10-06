@@ -24,7 +24,7 @@ const bandStyles = {
 };
 
 export default function StatePortfolioPage() {
-  const { selectedDomain, isDomainActive } = useDomain();
+  const { selectedDomains, isDomainActive } = useDomain();
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState('recvd');
   const [sortDir, setSortDir] = useState(-1);
@@ -86,8 +86,8 @@ export default function StatePortfolioPage() {
 
   // All state rows computed from data engine (filtered by active domain)
   const allRows = useMemo(() => computeStateRows({
-    domain: selectedDomain === 'All Domains' ? '' : selectedDomain,
-  }), [selectedDomain]);
+    domains: Array.from(selectedDomains),
+  }), [selectedDomains]);
 
   // Filtered & sorted state rows
   const filteredRows = useMemo(() => {
@@ -144,7 +144,7 @@ export default function StatePortfolioPage() {
                 <span>State-Wise Portfolio Distribution</span>
                 {isDomainActive && (
                   <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-orange-50 text-[#ff4d30] border border-orange-200">
-                    {selectedDomain}
+                    {selectedDomains.size > 0 ? Array.from(selectedDomains).join(", ") : "All Domains"}
                   </span>
                 )}
               </h1>

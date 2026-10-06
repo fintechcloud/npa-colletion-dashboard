@@ -7,7 +7,7 @@ export default function FilterBar({ filters, setFilters, showAgent = true, showT
   const update = (patch) => setFilters((f) => ({ ...f, ...patch }));
 
   const {
-    selectedDomain,
+    selectedDomains,
     clearDomain,
     isDomainActive,
     getAvailableLeaders,
@@ -16,13 +16,13 @@ export default function FilterBar({ filters, setFilters, showAgent = true, showT
 
   // Dynamic available leaders for the selected domain
   const availableLeaders = useMemo(() => {
-    return getAvailableLeaders(selectedDomain);
-  }, [getAvailableLeaders, selectedDomain]);
+    return getAvailableLeaders();
+  }, [getAvailableLeaders, selectedDomains]);
 
   // Dynamic available agents for the selected domain & leader
   const availableAgents = useMemo(() => {
-    return getAvailableAgents(selectedDomain, filters.leader);
-  }, [getAvailableAgents, selectedDomain, filters.leader]);
+    return getAvailableAgents(filters.leader);
+  }, [getAvailableAgents, selectedDomains, filters.leader]);
 
   // Auto-reset leader if not in available leaders for domain
   useEffect(() => {
@@ -223,7 +223,7 @@ export default function FilterBar({ filters, setFilters, showAgent = true, showT
       {/* Active Domain Chip with remove button */}
       {isDomainActive && (
         <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 border border-slate-200/80 text-slate-700 text-[11px] font-medium">
-          <span>Brand: <strong className="text-slate-900 font-semibold">{selectedDomain}</strong></span>
+          <span>Brand: <strong className="text-slate-900 font-semibold">{selectedDomains.size > 0 ? Array.from(selectedDomains).join(", ") : "All Domains"}</strong></span>
           <button
             type="button"
             onClick={clearDomain}

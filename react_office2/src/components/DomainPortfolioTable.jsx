@@ -35,7 +35,7 @@ const bandStyles = {
 };
 
 export default function DomainPortfolioTable() {
-  const { selectedDomain, setSelectedDomain, clearDomain, isDomainActive } = useDomain();
+  const { selectedDomains, toggleDomain, clearDomain, isDomainActive } = useDomain();
   const { totalLiveToday, totalYesterday, todayDate, yesterdayDate } = useLiveCollection();
 
   const [search, setSearch] = useState('');
@@ -201,7 +201,7 @@ export default function DomainPortfolioTable() {
 
           {isDomainActive && (
             <div className="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-700 bg-slate-100 hover:bg-slate-200/80 pl-2.5 pr-1.5 py-0.5 rounded-full border border-slate-200 transition-colors">
-              <span>Filter: <strong className="text-slate-900 font-semibold">{selectedDomain}</strong></span>
+              <span>Filter: <strong className="text-slate-900 font-semibold">{selectedDomains.size > 0 ? Array.from(selectedDomains).join(", ") : "All Domains"}</strong></span>
               <button
                 type="button"
                 onClick={clearDomain}
@@ -303,9 +303,9 @@ export default function DomainPortfolioTable() {
           <tbody className="divide-y divide-slate-100/80">
             {/* Master Consolidated Summary Row */}
             <tr
-              onClick={() => setSelectedDomain('All Domains')}
+              onClick={() => clearDomain()}
               className={`cursor-pointer transition-colors ${
-                selectedDomain === 'All Domains'
+                selectedDomains.size === 0
                   ? 'bg-slate-100/70 border-l-2 border-l-slate-900 font-medium'
                   : 'bg-slate-50/60 hover:bg-slate-100/50'
               }`}
@@ -317,7 +317,7 @@ export default function DomainPortfolioTable() {
                   <span className="font-semibold text-slate-900 text-[12.5px]">
                     All Domains (Consolidated)
                   </span>
-                  {selectedDomain === 'All Domains' && (
+                  {selectedDomains.size === 0 && (
                     <span className="text-[9.5px] font-medium px-1.5 py-0.2 rounded bg-slate-200 text-slate-700">
                       All
                     </span>
@@ -392,14 +392,14 @@ export default function DomainPortfolioTable() {
               </tr>
             ) : (
               sortedRows.map((d) => {
-                const isSelected = selectedDomain === d.name;
+                const isSelected = selectedDomains.has(d.name);
                 const dotColor = DOMAIN_DOT_COLORS[d.name] || 'bg-slate-400';
                 const style = bandStyles[d.band] || bandStyles.low;
 
                 return (
                   <tr
                     key={d.name}
-                    onClick={() => setSelectedDomain(d.name)}
+                    onClick={() => toggleDomain(d.name)}
                     className={`cursor-pointer transition-colors group ${
                       isSelected
                         ? 'bg-slate-100/70 border-l-2 border-l-slate-900'

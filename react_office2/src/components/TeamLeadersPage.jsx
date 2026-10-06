@@ -13,7 +13,7 @@ const bandClass = {
 
 export default function TeamLeadersPage({ onOpenLeader }) {
   const { liveData } = useLiveCollection();
-  const { selectedDomain, clearDomain, isDomainActive } = useDomain();
+  const { selectedDomains, clearDomain, isDomainActive } = useDomain();
   const [filters, setFilters] = useState({ from: '', to: '' });
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState('recvd');
@@ -23,8 +23,8 @@ export default function TeamLeadersPage({ onOpenLeader }) {
   // Active filters including domain
   const activeFilters = useMemo(() => ({
     ...filters,
-    domain: selectedDomain === 'All Domains' ? '' : selectedDomain,
-  }), [filters, selectedDomain]);
+    domains: Array.from(selectedDomains),
+  }), [filters, selectedDomains]);
 
   // Month date range boundaries from dataset
   const latestMonthStr = useMemo(() => (META.dateMax ? META.dateMax.slice(0, 7) : '2026-07'), []);
@@ -151,7 +151,7 @@ export default function TeamLeadersPage({ onOpenLeader }) {
         {/* Active Domain Chip with remove button */}
         {isDomainActive && (
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-orange-50 border border-orange-200 text-[#ff4d30] text-[11.5px] font-bold shadow-2xs">
-            <span>Domain: {selectedDomain}</span>
+            <span>Domain: {selectedDomains.size > 0 ? Array.from(selectedDomains).join(", ") : "All Domains"}</span>
             <button
               type="button"
               onClick={clearDomain}
@@ -184,7 +184,7 @@ export default function TeamLeadersPage({ onOpenLeader }) {
               <span>Team Leader Rollup</span>
               {isDomainActive && (
                 <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-orange-50 text-[#ff4d30] border border-orange-200">
-                  {selectedDomain}
+                  {selectedDomains.size > 0 ? Array.from(selectedDomains).join(", ") : "All Domains"}
                 </span>
               )}
             </div>

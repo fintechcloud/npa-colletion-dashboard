@@ -60,7 +60,7 @@ const DOMAIN_THEMES = {
 };
 
 export default function DomainShowcaseCarousel() {
-  const { selectedDomain, setSelectedDomain, clearDomain, isDomainActive } = useDomain();
+  const { selectedDomains, setSelectedDomain, clearDomain, isDomainActive } = useDomain();
   const carouselRef = useRef(null);
 
   const scroll = (direction) => {
@@ -210,7 +210,7 @@ export default function DomainShowcaseCarousel() {
         className="flex items-stretch gap-3 overflow-x-auto pb-2 scroll-smooth scrollbar-thin scrollbar-thumb-slate-200 select-none"
       >
         {domainCards.map((item) => {
-          const isSelected = selectedDomain === item.name;
+          const isSelected = item.name === 'All Domains' ? selectedDomains.size === 0 : selectedDomains.has(item.name);
           const theme = DOMAIN_THEMES[item.name] || DOMAIN_THEMES['All Domains'];
 
           return (

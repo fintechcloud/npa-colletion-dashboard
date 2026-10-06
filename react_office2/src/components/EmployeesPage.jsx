@@ -13,7 +13,7 @@ const bandClass = {
 
 export default function EmployeesPage({ onOpenAgent }) {
   const { liveData } = useLiveCollection();
-  const { selectedDomain, clearDomain, isDomainActive, getAvailableLeaders } = useDomain();
+  const { selectedDomains, clearDomain, isDomainActive, getAvailableLeaders } = useDomain();
   const [filters, setFilters] = useState({ leader: '', from: '', to: '' });
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState('recvd');
@@ -22,7 +22,7 @@ export default function EmployeesPage({ onOpenAgent }) {
 
   // Dynamic available leaders for the selected domain
   const availableLeaders = useMemo(() => {
-    return getAvailableLeaders(selectedDomain);
+    return getAvailableLeaders();
   }, [getAvailableLeaders, selectedDomain]);
 
   // Auto-reset leader if not in available leaders for domain
@@ -35,8 +35,8 @@ export default function EmployeesPage({ onOpenAgent }) {
   // Active filters including domain
   const activeFilters = useMemo(() => ({
     ...filters,
-    domain: selectedDomain === 'All Domains' ? '' : selectedDomain,
-  }), [filters, selectedDomain]);
+    domains: Array.from(selectedDomains),
+  }), [filters, selectedDomains]);
 
   // Month date range boundaries from dataset
   const latestMonthStr = useMemo(() => (META.dateMax ? META.dateMax.slice(0, 7) : '2026-07'), []);
@@ -166,7 +166,7 @@ export default function EmployeesPage({ onOpenAgent }) {
         {/* Active Domain Chip with remove button */}
         {isDomainActive && (
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-orange-50 border border-orange-200 text-[#ff4d30] text-[11.5px] font-bold shadow-2xs">
-            <span>Domain: {selectedDomain}</span>
+            <span>Domain: {selectedDomains.size > 0 ? Array.from(selectedDomains).join(", ") : "All Domains"}</span>
             <button
               type="button"
               onClick={clearDomain}

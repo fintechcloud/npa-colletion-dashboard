@@ -3,7 +3,7 @@ import { useDomain } from '../context/DomainContext';
 
 export default function DomainSwitcher({ className = '' }) {
   const {
-    selectedDomain,
+    selectedDomains,
     setSelectedDomain,
     clearDomain,
     isDomainActive,
@@ -19,7 +19,7 @@ export default function DomainSwitcher({ className = '' }) {
 
       <div className="flex items-center gap-1.5 shrink-0">
         {domainListWithCounts.map((d) => {
-          const isSelected = selectedDomain === d.name;
+          const isSelected = d.name === 'All Domains' ? selectedDomains.size === 0 : selectedDomains.has(d.name);
           return (
             <button
               key={d.name}
@@ -45,7 +45,7 @@ export default function DomainSwitcher({ className = '' }) {
                 <span
                   onClick={(e) => {
                     e.stopPropagation();
-                    clearDomain();
+                    setSelectedDomain(d.name);
                   }}
                   className="ml-0.5 p-0.5 hover:bg-white/20 rounded-full transition-colors"
                   aria-label="Remove domain filter"
@@ -66,7 +66,7 @@ export default function DomainSwitcher({ className = '' }) {
           className="shrink-0 ml-auto flex items-center gap-1 text-[11px] font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 border border-slate-200/80 px-2.5 py-1 rounded-xl transition-all cursor-pointer"
         >
           <RotateCcw size={11} />
-          <span>Clear ({selectedDomain})</span>
+          <span>Clear ({selectedDomains.size > 0 ? Array.from(selectedDomains).join(", ") : "All"})</span>
         </button>
       )}
     </div>

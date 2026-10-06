@@ -29,14 +29,14 @@ export default function OverviewPage({ onOpenAgent }) {
     todayDate,
     yesterdayDate,
   } = useLiveCollection();
-  const { selectedDomain } = useDomain();
+  const { selectedDomains } = useDomain();
   const [filters, setFilters] = useState({ leader: '', agent: '', type: '', from: '', to: '' });
 
   // Combined filters including active domain from DomainContext
   const activeFilters = useMemo(() => ({
     ...filters,
-    domain: selectedDomain === 'All Domains' ? '' : selectedDomain,
-  }), [filters, selectedDomain]);
+    domains: Array.from(selectedDomains),
+  }), [filters, selectedDomains]);
 
   const rows = useMemo(() => filterRows(activeFilters), [activeFilters]);
   const agg = useMemo(() => aggregate(rows), [rows]);
@@ -97,7 +97,7 @@ export default function OverviewPage({ onOpenAgent }) {
       }
     });
 
-    const isFiltered = Boolean(selectedDomain && selectedDomain !== 'All Domains');
+    const isFiltered = Boolean(selectedDomains.size > 0);
     const actualToday = META.actualCollectionByDate ? META.actualCollectionByDate[targetTodayStr] : null;
     const actualYday = META.actualCollectionByDate ? META.actualCollectionByDate[targetYdayStr] : null;
 
@@ -177,7 +177,7 @@ export default function OverviewPage({ onOpenAgent }) {
               <span className="text-slate-300">•</span>
               <div className="flex items-center gap-1.5 text-[11.5px]">
                 <span className="text-slate-400 font-normal">Active Domain:</span>
-                <span className="text-[#ff4d30] font-semibold">{selectedDomain}</span>
+                <span className="text-[#ff4d30] font-semibold">{selectedDomains.size > 0 ? Array.from(selectedDomains).join(", ") : "All Domains"}</span>
                 <span className="text-slate-500 font-mono text-[10.5px]">({agg.cases.toLocaleString('en-IN')} cases)</span>
               </div>
               <span className="text-slate-300">•</span>
@@ -285,7 +285,7 @@ export default function OverviewPage({ onOpenAgent }) {
       <DomainPortfolioTable />
 
       {/* 6. Centerpiece Collection Trend & Trajectory */}
-      <CollectionTrendChart agg={agg} selectedDomain={selectedDomain} />
+      <CollectionTrendChart agg={agg} selectedDomains={selectedDomains.size > 0 ? Array.from(selectedDomains).join(", ") : "All Domains"} />
 
       {/* 6. Two Column Grid: Month-wise & Closure Mode Breakdown */}
       <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-6">
@@ -356,7 +356,7 @@ export default function OverviewPage({ onOpenAgent }) {
 
       {/* 7. Two Column Grid: Top Performers & Needs Attention */}
       <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-6">
-        <Panel title={`Top Performers (${selectedDomain})`} sub="Highest individual collection totals (₹) in chosen domain">
+        <Panel title={`Top Performers (${selectedDomains.size > 0 ? Array.from(selectedDomains).join(", ") : "All Domains"})`} sub="Highest individual collection totals (₹) in chosen domain">
           {topPerformers.length === 0 ? (
             <div className="text-[12.5px] text-slate-400 py-8 text-center font-medium">No agents found for this selection.</div>
           ) : (
@@ -384,7 +384,7 @@ export default function OverviewPage({ onOpenAgent }) {
           )}
         </Panel>
 
-        <Panel title={`Needs Attention (${selectedDomain})`} sub="Agents recovering under 60% of assigned due">
+        <Panel title={`Needs Attention (${selectedDomains.size > 0 ? Array.from(selectedDomains).join(", ") : "All Domains"})`} sub="Agents recovering under 60% of assigned due">
           {needsAttention.length === 0 ? (
             <div className="text-[12.5px] text-slate-400 py-8 text-center font-medium">All active agents in this domain are above target threshold (≥60%).</div>
           ) : (
