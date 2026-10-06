@@ -163,7 +163,7 @@ export function aggregate(rows) {
   const domainSet = new Set();
 
   for (const r of rows) {
-    const [a, l, t, s, off, d, rv, st, dI, loanAmt, mI, dpd, recMonth] = r;
+    const [a, l, t, s, off, d, rv, st, dI, loanAmt, mI, dpd, recMonth, recDayOffset] = r;
     due += (d || 0);
     recvd += (rv || 0);
     principal += (loanAmt || 0);
