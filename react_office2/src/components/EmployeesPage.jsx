@@ -23,7 +23,7 @@ export default function EmployeesPage({ onOpenAgent }) {
   // Dynamic available leaders for the selected domain
   const availableLeaders = useMemo(() => {
     return getAvailableLeaders();
-  }, [getAvailableLeaders, selectedDomain]);
+  }, [getAvailableLeaders, selectedDomains]);
 
   // Auto-reset leader if not in available leaders for domain
   useEffect(() => {

@@ -112,7 +112,7 @@ export default function OverviewPage({ onOpenAgent }) {
       yesterdayAmount: finalYdayAmt,
       yesterdayCasesCount: finalYdayCases,
     };
-  }, [rows, selectedDomain, targetTodayStr, targetYdayStr, totalLiveToday, totalLiveCases, totalYesterday, totalYesterdayCases]);
+  }, [rows, selectedDomains, targetTodayStr, targetYdayStr, totalLiveToday, totalLiveCases, totalYesterday, totalYesterdayCases]);
 
   const remaining = agg.due - agg.recvd;
 
