@@ -57,16 +57,33 @@ function Dashboard() {
   //   return <LoginPage />;
   // }
 
+  const [isSlowLoad, setIsSlowLoad] = useState(false);
+
+  useEffect(() => {
+    if (status !== 'loading') return;
+    const timer = setTimeout(() => {
+      setIsSlowLoad(true);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [status]);
+
   const handleOpenAgent = (name) => { setOpenLeader(null); setOpenAgent(name); };
   const handleOpenLeader = (name) => { setOpenAgent(null); setOpenLeader(name); };
 
   if (status === 'loading') {
     return (
-      <div className="relative min-h-screen bg-[#f8fafc] flex items-center justify-center overflow-hidden">
+      <div className="relative min-h-screen bg-[#f8fafc] flex items-center justify-center overflow-hidden px-4">
         <div className="fixed inset-0 pointer-events-none bg-[radial-gradient(ellipse_80%_60%_at_50%_-20%,rgba(255,94,58,0.08),transparent_70%)]" />
-        <div className="relative z-10 text-center bg-white px-8 py-7 rounded-3xl border border-slate-200/90 shadow-xl">
+        <div className="relative z-10 text-center bg-white px-8 py-7 rounded-3xl border border-slate-200/90 shadow-xl max-w-sm">
           <div className="w-10 h-10 border-[3px] border-[#ff4d30] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <div className="text-[13px] font-semibold text-slate-700 tracking-wide">Loading collections intelligence…</div>
+          <div className="text-[13px] font-semibold text-slate-800 tracking-wide">
+            {isSlowLoad ? 'Waking up cloud backend…' : 'Loading collections intelligence…'}
+          </div>
+          {isSlowLoad && (
+            <p className="text-[11px] text-slate-400 mt-2 leading-relaxed">
+              Cloud backend sleeps after inactivity on free tier. Initial boot takes ~45–60s. Subsequent requests load instantly.
+            </p>
+          )}
         </div>
       </div>
     );
