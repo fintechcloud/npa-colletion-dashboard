@@ -28,15 +28,6 @@ export default function Topbar({ page }) {
 
       {/* Right User Actions */}
       <div className="flex items-center gap-3">
-        {/* Live Today Pulse */}
-        <div 
-          title={`Today's Live Collection`}
-          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 font-mono font-medium text-[11.5px] shadow-xs cursor-pointer hover:bg-emerald-100/80 transition-colors"
-        >
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span>Live Today: {fmtINR(totalLiveToday)}</span>
-        </div>
-
         {/* Google Sheet Live Beacon */}
         <div
           title={`Google Sheet Live Stream: ${totalLiveCases} cases collected today.`}
@@ -49,13 +40,18 @@ export default function Topbar({ page }) {
           <span className="text-[11.5px] font-mono font-bold text-emerald-800 flex items-center gap-1.5">
             <span className="hidden sm:inline">Google Sheet</span>
             <span>Live</span>
+            {totalLiveToday > 0 && (
+              <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100 px-1.5 py-0.2 rounded-full border border-emerald-200">
+                {fmtINR(totalLiveToday)}
+              </span>
+            )}
           </span>
         </div>
 
         {/* 3-Minute Auto-Sync Indicator */}
         <div 
           title="Auto-Sync Active: The entire dashboard automatically synchronizes with your Google Sheet every 3 minutes."
-          className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-600 text-[11px] font-mono select-none"
+          className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-600 text-[11px] font-mono select-none"
         >
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
           <span>Auto-sync 3m</span>
@@ -63,7 +59,7 @@ export default function Topbar({ page }) {
 
         <button 
           title="App Switcher" 
-          className="hidden md:flex w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200/70 border border-slate-200 items-center justify-center text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
+          className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200/70 border border-slate-200 flex items-center justify-center text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
         >
           <LayoutGrid size={15} />
         </button>
@@ -74,6 +70,13 @@ export default function Topbar({ page }) {
         >
           <Bell size={15} />
           <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#ff3b30]" />
+        </button>
+
+        <button 
+          title="Help" 
+          className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200/70 border border-slate-200 flex items-center justify-center text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
+        >
+          <HelpCircle size={15} />
         </button>
 
         <div className="h-5 w-[1px] bg-slate-200 mx-1" />

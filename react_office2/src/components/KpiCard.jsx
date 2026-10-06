@@ -14,7 +14,6 @@ export default function KpiCard({
   trend,
   onClick,
   valueClassName = '',
-  className = '',
 }) {
   const toneMap = {
     default: {
@@ -60,7 +59,7 @@ export default function KpiCard({
       onClick={onClick}
       className={`group relative bg-white hover:bg-slate-50/60 backdrop-blur-xl border border-slate-200/90 ${t.cardBorder} rounded-2xl p-4 sm:p-4.5 transition-all shadow-sm hover:shadow-md flex flex-col justify-between ${
         onClick ? 'cursor-pointer' : ''
-      } ${className}`}
+      }`}
     >
       {/* Top row: Minimalist Icon + Label + Micro Trend */}
       <div className="flex items-center justify-between gap-2">

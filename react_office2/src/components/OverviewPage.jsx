@@ -154,103 +154,59 @@ export default function OverviewPage({ onOpenAgent }) {
     .slice(0, 5), [empAgg]);
 
   return (
-    <div className="space-y-5">
-      {/* 1. Sleek Prominent Multi-Domain Switcher Pill Bar (Row 1) */}
+    <div className="space-y-6">
+      {/* 1. Sleek Prominent Multi-Domain Switcher Pill Bar */}
       <DomainSwitcher />
 
-      {/* 2. Top Filter Bar (Row 2) */}
+      {/* 2. Top Filter Bar */}
       <FilterBar filters={filters} setFilters={setFilters} />
 
-      {/* 3. Primary "Hero" KPI Cards (3 Cards) matching Reference Image */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4.5">
-        {/* Hero Card 1: Total Repayment Due */}
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-5 sm:p-6 shadow-[0_1px_3px_rgba(0,0,0,0.02)] flex flex-col justify-between hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg border bg-amber-50 border-amber-200 text-amber-600 flex items-center justify-center">
-              <AlertCircle size={15} strokeWidth={2.2} />
-            </div>
-            <span className="text-[12.5px] font-semibold text-slate-500 uppercase tracking-wide">
-              Total Repayment Due
-            </span>
-          </div>
-          <div className="my-3">
-            <div className="font-bold text-slate-900 tracking-tight font-display text-[30px] sm:text-[34px] xl:text-[36px] leading-tight">
-              {fmtINR(agg.due)}
-            </div>
-            <div className="text-[12px] font-medium text-slate-400 mt-1">
-              Remaining: <span className="font-mono text-slate-600 font-semibold">{fmtINR(remaining)}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Hero Card 2: Total NPA Recovered */}
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-5 sm:p-6 shadow-[0_1px_3px_rgba(0,0,0,0.02)] flex flex-col justify-between hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg border bg-orange-50 border-orange-200 text-[#ff4d30] flex items-center justify-center">
-              <Wallet size={15} strokeWidth={2.2} />
-            </div>
-            <span className="text-[12.5px] font-semibold text-slate-500 uppercase tracking-wide">
-              Total NPA Recovered
-            </span>
-          </div>
-          <div className="my-3">
-            <div className="font-bold text-slate-900 tracking-tight font-display text-[30px] sm:text-[34px] xl:text-[36px] leading-tight">
-              {fmtINR(agg.recvd)}
-            </div>
-            <div className="text-[12px] font-medium text-slate-400 mt-1">
-              All-time portfolio recovery
-            </div>
-          </div>
-        </div>
-
-        {/* Hero Card 3: Recovery Rate with Circular Donut Progress Ring */}
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-5 sm:p-6 shadow-[0_1px_3px_rgba(0,0,0,0.02)] flex items-center justify-between hover:shadow-md transition-shadow">
-          <div>
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg border bg-rose-50 border-rose-200 text-[#ff4d30] flex items-center justify-center">
-                <TrendingUp size={15} strokeWidth={2.2} />
+      {/* 3. Sleek Minimalist Ticker Bar */}
+      <div className="relative bg-white/85 backdrop-blur-xl border border-slate-200/90 rounded-xl py-2 mb-5 text-slate-800 overflow-hidden shadow-xs">
+        <div className="flex items-center gap-8 whitespace-nowrap animate-marquee w-max">
+          {[0, 1].map((copy) => (
+            <div key={copy} className="flex items-center gap-5 pl-4">
+              <button
+                type="button"
+                onClick={() => setShowSyncModal(true)}
+                className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-200 text-emerald-800 font-mono font-medium text-[11.5px] cursor-pointer transition-all shadow-xs"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Live Today: {fmtINR(totalLiveToday)}</span>
+              </button>
+              <span className="text-slate-300">•</span>
+              <div className="flex items-center gap-1.5 text-[11.5px]">
+                <span className="text-slate-400 font-normal">Active Domain:</span>
+                <span className="text-[#ff4d30] font-semibold">{selectedDomains.size > 0 ? Array.from(selectedDomains).join(", ") : "All Domains"}</span>
+                <span className="text-slate-500 font-mono text-[10.5px]">({agg.cases.toLocaleString('en-IN')} cases)</span>
               </div>
-              <span className="text-[12.5px] font-semibold text-slate-500 uppercase tracking-wide">
-                Recovery Rate
-              </span>
+              <span className="text-slate-300">•</span>
+              <div className="flex items-center gap-1.5 text-[11.5px]">
+                <span className="text-slate-400 font-normal">Recovery Rate:</span>
+                <span className="text-emerald-700 font-mono font-semibold">{agg.pct.toFixed(2)}%</span>
+              </div>
+              <span className="text-slate-300">•</span>
+              <Stat label="Total Due" value={fmtINR(agg.due)} />
+              <span className="text-slate-300">•</span>
+              <Stat label="Recovered" value={fmtINR(agg.recvd)} accent />
+              <span className="text-slate-300">•</span>
+              <Stat label="Principal Disbursed" value={fmtINR(agg.principal)} />
+              <span className="text-slate-300">•</span>
+              <Stat label="Sep 2026 Recov" value={fmtINR(agg.sep2026Recvd)} />
+              <span className="text-slate-300">•</span>
+              <Stat label="Active Agents" value={agg.agentCount} />
+              <span className="text-slate-300">•</span>
+              <Stat label="Active Leaders" value={agg.leaderCount} />
             </div>
-            <div className="font-bold text-slate-900 tracking-tight font-display text-[30px] sm:text-[34px] xl:text-[36px] leading-tight my-2">
-              {agg.pct.toFixed(2)}%
-            </div>
-            <div className="text-[12px] font-medium text-slate-400">
-              Overall portfolio recovery
-            </div>
-          </div>
-
-          {/* Elegant Circular Donut Gauge matching reference image */}
-          <div className="relative w-18 h-18 sm:w-20 sm:h-20 shrink-0 flex items-center justify-center">
-            <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-              <path
-                className="text-slate-100"
-                strokeWidth="4"
-                stroke="currentColor"
-                fill="none"
-                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-              />
-              <path
-                className="text-[#ff5533]"
-                strokeDasharray={`${Math.min(Math.max(agg.pct, 0), 100)}, 100`}
-                strokeWidth="4.2"
-                strokeLinecap="round"
-                stroke="currentColor"
-                fill="none"
-                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-              />
-            </svg>
-          </div>
+          ))}
         </div>
       </div>
 
-      {/* 4. Secondary Operational KPI Cards (2 Rows of 4 Cards) */}
+      {/* 4. Top 8 KPI Cards: 2 rows of 4 cards (Live & Daily Recovery, Scope & Performance) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         <KpiCard
           index={0}
-          label="Today's Live Collection"
+          label="Today Live Collection"
           raw={todayLiveAmount}
           format={fmtINR}
           sub={`${todayLiveCasesCount} cases collected`}
@@ -260,7 +216,7 @@ export default function OverviewPage({ onOpenAgent }) {
         />
         <KpiCard
           index={1}
-          label="Yesterday's Total Collection"
+          label="Yesterday Total Collection"
           raw={yesterdayAmount}
           format={fmtINR}
           sub={`${yesterdayCasesCount} cases collected`}
@@ -270,22 +226,21 @@ export default function OverviewPage({ onOpenAgent }) {
         />
         <KpiCard
           index={2}
-          label="Settled vs Part-Payment"
-          raw={agg.modeCount?.['PART-PAYMENT'] || 0}
-          format={() => `${(agg.modeCount?.['PART-PAYMENT'] || 0).toLocaleString('en-IN')} Part · ${(agg.modeCount?.['SETTLED'] || 0).toLocaleString('en-IN')} Settled`}
-          sub={`${(agg.modeCount?.['CLOSED'] || 0).toLocaleString('en-IN')} Closed · ${(agg.modeCount?.['SETTLED ON DISBURSAL'] || 0).toLocaleString('en-IN')} Disbursal`}
-          icon={CheckCircle2}
-          tone="live"
-          valueClassName="text-[17px] sm:text-[18px] xl:text-[19px]"
+          label="Total NPA Recovered"
+          raw={agg.recvd}
+          format={fmtINR}
+          sub="All-time portfolio recovery"
+          icon={Wallet}
+          tone="brand"
         />
         <KpiCard
           index={3}
-          label="Latest Month Recovery (Sep 2026)"
-          raw={agg.sep2026Recvd}
+          label="Total Repayment Due"
+          raw={agg.due}
           format={fmtINR}
-          sub="September 2026 reconciled collections"
-          icon={TrendingUp}
-          tone="brand"
+          sub={`Remaining: ${fmtINR(remaining)}`}
+          icon={AlertCircle}
+          tone="warn"
         />
         <KpiCard
           index={4}
@@ -307,29 +262,30 @@ export default function OverviewPage({ onOpenAgent }) {
         />
         <KpiCard
           index={6}
-          label="Resolved & Closed Accounts"
-          raw={(agg.modeCount?.['CLOSED'] || 0) + (agg.modeCount?.['SETTLED'] || 0)}
-          format={(v) => `${v.toLocaleString('en-IN')} Accounts`}
-          sub="Cases fully resolved / closed"
+          label="Settled vs Part-Payment"
+          raw={agg.modeCount?.['PART-PAYMENT'] || 0}
+          format={() => `${(agg.modeCount?.['PART-PAYMENT'] || 0).toLocaleString('en-IN')} Part · ${(agg.modeCount?.['SETTLED'] || 0).toLocaleString('en-IN')} Settled`}
+          sub={`${(agg.modeCount?.['CLOSED'] || 0).toLocaleString('en-IN')} Closed · ${(agg.modeCount?.['SETTLED ON DISBURSAL'] || 0).toLocaleString('en-IN')} Disbursal`}
           icon={CheckCircle2}
           tone="live"
+          valueClassName="text-[17px] sm:text-[18px] xl:text-[19px]"
         />
         <KpiCard
           index={7}
-          label="Active Recovery Focus"
-          raw={agg.cases ? Math.round((agg.recvd / agg.cases)) : 0}
-          format={(v) => `${fmtINR(v)} / case`}
-          sub="Average recovery per case"
-          icon={Clock}
-          tone="neutral"
+          label="Latest Month Recovery (Sep 2026)"
+          raw={agg.sep2026Recvd}
+          format={fmtINR}
+          sub="September 2026 reconciled collections"
+          icon={TrendingUp}
+          tone="brand"
         />
       </div>
 
-      {/* 5. Centerpiece Split-Screen Section: Daily Trajectory (Left) & Portfolio by Brand (Right) */}
-      <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-6 items-start">
-        <CollectionTrendChart agg={agg} selectedDomains={selectedDomains} />
-        <DomainPortfolioTable />
-      </div>
+      {/* 5. Scrollable Domain Portfolio Table (All Domains Data Breakdown) */}
+      <DomainPortfolioTable />
+
+      {/* 6. Centerpiece Collection Trend & Trajectory */}
+      <CollectionTrendChart agg={agg} selectedDomains={selectedDomains.size > 0 ? Array.from(selectedDomains).join(", ") : "All Domains"} />
 
       {/* 6. Two Column Grid: Month-wise & Closure Mode Breakdown */}
       <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-6">
@@ -362,39 +318,34 @@ export default function OverviewPage({ onOpenAgent }) {
                     data={donutData}
                     dataKey="value"
                     innerRadius={46}
-                    outerRadius={68}
+                    outerRadius={64}
                     paddingAngle={3}
+                    cornerRadius={5}
                   >
-                    {donutData.map((e) => (
-                      <Cell key={e.name} fill={MODE_COLORS[e.name] || '#94a3b8'} />
+                    {donutData.map((d) => (
+                      <Cell key={d.name} fill={MODE_COLORS[d.name] || '#94a3b8'} stroke="none" />
                     ))}
                   </Pie>
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-[17px] font-bold text-slate-900 font-display">
-                  {agg.cases.toLocaleString('en-IN')}
-                </span>
-                <span className="text-[9.5px] uppercase tracking-wider text-slate-400 font-medium">
-                  Cases
-                </span>
+                <div className="text-[20px] font-extrabold text-slate-900 font-display leading-none">{agg.cases.toLocaleString('en-IN')}</div>
+                <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-1">Cases</div>
               </div>
             </div>
 
-            <div className="flex-1 space-y-1.5 min-w-0">
+            <div className="flex-1 flex flex-col gap-2">
               {donutData.map((d) => {
-                const count = d.value;
-                const pct = agg.cases ? ((count / agg.cases) * 100).toFixed(1) : '0.0';
+                const pct = agg.cases ? Math.round((d.value / agg.cases) * 1000) / 10 : 0;
                 return (
-                  <div key={d.name} className="flex items-center justify-between text-[11.5px]">
-                    <div className="flex items-center gap-2 truncate">
-                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: MODE_COLORS[d.name] || '#94a3b8' }} />
-                      <span className="text-slate-600 truncate">{d.name}</span>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0 font-mono">
-                      <span className="font-semibold text-slate-800">{count.toLocaleString('en-IN')}</span>
-                      <span className="text-slate-400 text-[10px] w-10 text-right">{pct}%</span>
-                    </div>
+                  <div key={d.name} className="flex items-center gap-2.5 text-[12px]">
+                    <span
+                      className="w-2 h-2 rounded-full shrink-0 shadow-xs"
+                      style={{ background: MODE_COLORS[d.name] || '#94a3b8', color: MODE_COLORS[d.name] || '#94a3b8' }}
+                    />
+                    <span className="flex-1 font-medium text-slate-600 truncate">{titleCase(d.name)}</span>
+                    <span className="font-mono font-semibold text-slate-900">{d.value.toLocaleString('en-IN')}</span>
+                    <span className="font-mono text-slate-400 w-11 text-right">{pct}%</span>
                   </div>
                 );
               })}
@@ -409,33 +360,27 @@ export default function OverviewPage({ onOpenAgent }) {
           {topPerformers.length === 0 ? (
             <div className="text-[12.5px] text-slate-400 py-8 text-center font-medium">No agents found for this selection.</div>
           ) : (
-            <div className="divide-y divide-slate-100">
-              {topPerformers.map((a, idx) => (
-                <div
-                  key={a.name}
-                  onClick={() => onOpenAgent && onOpenAgent(a.name)}
-                  className="py-2.5 flex items-center justify-between hover:bg-slate-50/70 -mx-3 px-3 rounded-xl transition-colors cursor-pointer group"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <span className="w-5 h-5 rounded-full bg-slate-100 group-hover:bg-[#ff4d30] group-hover:text-white text-slate-600 font-mono text-[10px] font-bold flex items-center justify-center shrink-0 transition-colors">
-                      {idx + 1}
-                    </span>
-                    <div className="min-w-0">
-                      <div className="text-[12.5px] font-semibold text-slate-800 group-hover:text-[#ff4d30] truncate transition-colors">
-                        {a.name}
-                      </div>
-                      <div className="text-[10.5px] text-slate-400 font-mono truncate">
-                        {a.cases} cases · {a.domains.join(', ') || 'No domain'}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className="font-mono font-bold text-slate-900 text-[12.5px]">{fmtINR(a.recvd)}</div>
-                    <div className="text-[10px] font-mono text-emerald-600 font-semibold">{a.pct}% recovered</div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <ResponsiveContainer width="100%" height={230}>
+              <BarChart
+                data={topPerformers.map((p) => ({ name: p.name.split(' ')[0], full: p.name, recvd: p.recvd }))}
+                margin={{ top: 10, right: 10, left: -10, bottom: 0 }}
+              >
+                <defs>
+                  <linearGradient id="topAgentGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#10b981" />
+                    <stop offset="100%" stopColor="#059669" />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid vertical={false} stroke="#f1f5f9" strokeDasharray="3 3" />
+                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} tickLine={false} />
+                <YAxis tickFormatter={(v) => fmtINR(v)} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} tickLine={false} />
+                <Tooltip
+                  content={<CustomTooltip isCurrency={true} />}
+                  labelFormatter={(_, p) => p?.[0]?.payload?.full || ''}
+                />
+                <Bar dataKey="recvd" name="Recovered" fill="url(#topAgentGrad)" radius={[6, 6, 0, 0]} barSize={34} />
+              </BarChart>
+            </ResponsiveContainer>
           )}
         </Panel>
 
@@ -443,31 +388,48 @@ export default function OverviewPage({ onOpenAgent }) {
           {needsAttention.length === 0 ? (
             <div className="text-[12.5px] text-slate-400 py-8 text-center font-medium">All active agents in this domain are above target threshold (≥60%).</div>
           ) : (
-            <div className="divide-y divide-slate-100">
-              {needsAttention.map((a) => (
-                <div
-                  key={a.name}
-                  onClick={() => onOpenAgent && onOpenAgent(a.name)}
-                  className="py-2.5 flex items-center justify-between hover:bg-slate-50/70 -mx-3 px-3 rounded-xl transition-colors cursor-pointer group"
+            <div className="flex flex-col gap-2.5">
+              {needsAttention.map((e) => (
+                <button
+                  key={e.name}
+                  onClick={() => onOpenAgent(e.name)}
+                  className="flex items-center gap-3 text-left bg-slate-50 hover:bg-slate-100/80 border border-slate-200/90 hover:border-slate-300 rounded-xl px-3.5 py-2.5 transition-all cursor-pointer group shadow-xs"
                 >
-                  <div className="min-w-0">
-                    <div className="text-[12.5px] font-semibold text-slate-800 group-hover:text-rose-600 truncate transition-colors">
-                      {a.name}
+                  <div className="w-7 h-7 rounded-lg bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 shrink-0">
+                    <AlertTriangle size={14} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[13px] font-bold text-slate-900 group-hover:text-[#ff4d30] transition-colors truncate">
+                      {e.name}
                     </div>
-                    <div className="text-[10.5px] text-slate-400 font-mono truncate">
-                      {a.cases} cases · Due: {fmtINR(a.due)}
+                    <div className="text-[11px] text-slate-500">
+                      {fmtINR(e.recvd)} of {fmtINR(e.due)}
                     </div>
                   </div>
-                  <div className="text-right shrink-0">
-                    <div className="font-mono font-semibold text-slate-700 text-[12px]">{fmtINR(a.recvd)}</div>
-                    <div className="text-[10.5px] font-mono text-rose-600 font-bold">{a.pct}% recovered</div>
-                  </div>
-                </div>
+                  <span className="text-[12px] font-mono font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                    {e.pct}%
+                  </span>
+                </button>
               ))}
             </div>
           )}
         </Panel>
       </div>
+
+      {/* 8. New vs Repeat Customer Recovery */}
+      <Panel title="New vs. Repeat Customer Recovery" sub="Comparing collection efficiency across borrower profiles">
+        <ResponsiveContainer width="100%" height={170}>
+          <BarChart data={newRepeatData} layout="vertical" margin={{ left: 10, right: 20, top: 10, bottom: 0 }}>
+            <CartesianGrid horizontal={false} stroke="#f1f5f9" strokeDasharray="3 3" />
+            <XAxis type="number" tickFormatter={(v) => fmtINR(v)} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} tickLine={false} />
+            <YAxis type="category" dataKey="name" tick={{ fontSize: 12, fill: '#334155', fontWeight: 700 }} axisLine={{ stroke: '#e2e8f0' }} tickLine={false} width={64} />
+            <Tooltip content={<CustomTooltip />} />
+            <Legend wrapperStyle={{ fontSize: 12, fontWeight: 600, paddingTop: 6 }} />
+            <Bar dataKey="due" name="Due" fill="#cbd5e1" radius={[0, 6, 6, 0]} barSize={22} />
+            <Bar dataKey="recvd" name="Recovered" fill="#ff4d30" radius={[0, 6, 6, 0]} barSize={22} />
+          </BarChart>
+        </ResponsiveContainer>
+      </Panel>
     </div>
   );
 }
