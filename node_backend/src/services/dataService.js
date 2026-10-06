@@ -464,8 +464,20 @@ function buildDashboardPayload({ cleaned, allTransactions = [] }) {
     }
   });
 
+  let minRecTime = Infinity;
+  let maxRecTime = -Infinity;
+  cleaned.forEach((c) => {
+    if (c.recDate && !Number.isNaN(c.recDate.getTime())) {
+      const t = c.recDate.getTime();
+      if (t < minRecTime) minRecTime = t;
+      if (t > maxRecTime) maxRecTime = t;
+    }
+  });
+
   const dateMin = minTime !== Infinity ? new Date(minTime) : new Date('2024-01-01');
   const dateMax = maxTime !== -Infinity ? new Date(maxTime) : new Date('2026-09-30');
+  const recDateMin = minRecTime !== Infinity ? new Date(minRecTime) : dateMin;
+  const recDateMax = maxRecTime !== -Infinity ? new Date(maxRecTime) : dateMax;
 
   // Agent primary and multi leaders & domain mappings
   const agentLeaderCounts = {};
@@ -593,6 +605,8 @@ function buildDashboardPayload({ cleaned, allTransactions = [] }) {
     leaderDomains: serializedLeaderDomains,
     dateMin: toDateStr(dateMin),
     dateMax: toDateStr(dateMax),
+    recDateMin: toDateStr(recDateMin),
+    recDateMax: toDateStr(recDateMax),
     today: todayStr,
     totalDisbursedPrincipal: Math.round(totalDisbursedPrincipal),
     totalRepaymentDue: Math.round(totalRepaymentDue),

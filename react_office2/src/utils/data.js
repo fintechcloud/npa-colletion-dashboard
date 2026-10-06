@@ -139,7 +139,10 @@ export function filterRows({ domain = '', domains = [], leader = '', agent = '',
     if (agentI >= 0 && r[0] !== agentI) return false;
     if (typeI >= 0 && r[2] !== typeI) return false;
     if (stateI >= 0 && r[7] !== undefined && r[7] !== stateI) return false;
-    if (r[4] < fromOff || r[4] > toOff) return false;
+    // Core domain rule: Recovery analytics works on Received Date (r[13] = recDayOffset).
+    // Fallback to r[4] only if received date is missing.
+    const recOff = (r[13] !== undefined && r[13] >= 0) ? r[13] : r[4];
+    if (recOff < fromOff || recOff > toOff) return false;
     return true;
   });
 }
@@ -181,7 +184,9 @@ export function aggregate(rows) {
       typeAgg[TYPES[t]].recvd += (rv || 0);
       typeAgg[TYPES[t]].cases++;
     }
-    const dstr = offsetToStr(off);
+    // Group monthly/daily trends by Received Date (recDayOffset), fallback to off (repayDate)
+    const eventOff = (recDayOffset !== undefined && recDayOffset >= 0) ? recDayOffset : off;
+    const dstr = offsetToStr(eventOff);
     const mstr = dstr.slice(0, 7);
     if (!monthMap[mstr]) monthMap[mstr] = { due: 0, recvd: 0, cases: 0 };
     monthMap[mstr].due += (d || 0);
@@ -225,7 +230,8 @@ export function computeLeaderRows(filters, liveLeaderMap = {}) {
     byLeader[l].recvd += r[6];
     byLeader[l].cases++;
     byLeader[l].agents.add(r[0]);
-    if (offsetToStr(r[4]) === YESTERDAY_STR) byLeader[l].yday += r[6];
+    const recOff = (r[13] !== undefined && r[13] >= 0) ? r[13] : r[4];
+    if (offsetToStr(recOff) === YESTERDAY_STR) byLeader[l].yday += r[6];
   });
   return LEADERS.map((l) => {
     const leaderLive = liveLeaderMap?.[l.toUpperCase()] || liveLeaderMap?.[l] || {};

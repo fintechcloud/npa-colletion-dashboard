@@ -38,27 +38,37 @@ export default function FilterBar({ filters, setFilters, showAgent = true, showT
     }
   }, [availableAgents, filters.agent]);
 
-  // Month date range boundaries from dataset
-  const latestMonthStr = useMemo(() => (META.dateMax ? META.dateMax.slice(0, 7) : '2026-07'), []);
-  const thisMonthFrom = useMemo(() => `${latestMonthStr}-01`, [latestMonthStr]);
-  const thisMonthTo = useMemo(() => META.dateMax || `${latestMonthStr}-31`, [latestMonthStr]);
-  const monthName = useMemo(() => {
-    const full = fmtMonth(latestMonthStr);
-    return full.split(' ')[0];
-  }, [latestMonthStr]);
+  // Operational month boundaries based on received date timeline
+  const currentMonthStr = useMemo(() => {
+    if (META.today) return META.today.slice(0, 7);
+    return '2026-10';
+  }, []);
+  const currentMonthFrom = useMemo(() => `${currentMonthStr}-01`, [currentMonthStr]);
+  const currentMonthTo = useMemo(() => {
+    const [y, m] = currentMonthStr.split('-').map(Number);
+    const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+    return `${currentMonthStr}-${String(lastDay).padStart(2, '0')}`;
+  }, [currentMonthStr]);
+  const currentMonthName = useMemo(() => fmtMonth(currentMonthStr).split(' ')[0], [currentMonthStr]);
 
-  // Active period preset: 'overall' | 'current-month' | 'custom'
+  const sepMonthFrom = '2026-09-01';
+  const sepMonthTo = '2026-09-30';
+
+  // Active period preset: 'overall' | 'sep-2026' | 'current-month' | 'custom'
   const activePeriod = useMemo(() => {
     if (!filters.from && !filters.to) return 'overall';
-    if (filters.from === thisMonthFrom && filters.to === thisMonthTo) return 'current-month';
+    if (filters.from === sepMonthFrom && filters.to === sepMonthTo) return 'sep-2026';
+    if (filters.from === currentMonthFrom && filters.to === currentMonthTo) return 'current-month';
     return 'custom';
-  }, [filters.from, filters.to, thisMonthFrom, thisMonthTo]);
+  }, [filters.from, filters.to, currentMonthFrom, currentMonthTo]);
 
   const selectPeriod = (mode) => {
     if (mode === 'overall') {
       update({ from: '', to: '' });
+    } else if (mode === 'sep-2026') {
+      update({ from: sepMonthFrom, to: sepMonthTo });
     } else if (mode === 'current-month') {
-      update({ from: thisMonthFrom, to: thisMonthTo });
+      update({ from: currentMonthFrom, to: currentMonthTo });
     }
   };
 
@@ -78,7 +88,7 @@ export default function FilterBar({ filters, setFilters, showAgent = true, showT
         <span>Filters</span>
       </span>
 
-      {/* Period Segmented Control: Overall vs Current Month */}
+      {/* Period Segmented Control: Overall | Sep 2026 | Current Month */}
       <div className="flex bg-slate-100/90 border border-slate-200/60 rounded-xl p-0.5 gap-0.5 text-[11.5px]">
         <button
           type="button"
@@ -90,6 +100,25 @@ export default function FilterBar({ filters, setFilters, showAgent = true, showT
           }`}
         >
           <span>Overall</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => selectPeriod('sep-2026')}
+          className={`flex items-center gap-1.5 font-medium px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+            activePeriod === 'sep-2026'
+              ? 'bg-white text-slate-900 shadow-2xs font-semibold'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <span>Sep 2026</span>
+          <span
+            className={`text-[9.5px] font-mono px-1 py-0.2 rounded font-medium ${
+              activePeriod === 'sep-2026' ? 'bg-slate-100 text-slate-700' : 'bg-white/80 text-slate-500 border border-slate-200/60'
+            }`}
+          >
+            Last Mo
+          </span>
         </button>
 
         <button
@@ -107,7 +136,7 @@ export default function FilterBar({ filters, setFilters, showAgent = true, showT
               activePeriod === 'current-month' ? 'bg-slate-100 text-slate-700' : 'bg-white/80 text-slate-500 border border-slate-200/60'
             }`}
           >
-            {monthName}
+            {currentMonthName}
           </span>
         </button>
       </div>
@@ -169,8 +198,9 @@ export default function FilterBar({ filters, setFilters, showAgent = true, showT
 
       <div className="h-4 w-[1px] bg-slate-200 hidden sm:block" />
 
-      {/* Date range inputs */}
+      {/* Date range inputs (Received Date) */}
       <div className="flex items-center gap-1.5">
+        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider hidden md:inline">RCV:</span>
         <input
           type="date"
           value={filters.from}
