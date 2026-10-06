@@ -17,14 +17,108 @@ import { DomainProvider } from './context/DomainContext';
 import { useAuth } from './utils/auth';
 import { fetchDashboardData } from './utils/data';
 
+// Browser History & URL State Synchronization helpers
+function parseLocationParams() {
+  if (typeof window === 'undefined') return { page: 'overview', agent: null, leader: null };
+  const params = new URLSearchParams(window.location.search);
+  const tab = params.get('tab') || 'overview';
+  const validTabs = ['overview', 'states', 'leaders', 'employees'];
+  return {
+    page: validTabs.includes(tab) ? tab : 'overview',
+    agent: params.get('agent') || null,
+    leader: params.get('leader') || null,
+  };
+}
+
+function buildUrl(targetPage, targetAgent, targetLeader) {
+  if (typeof window === 'undefined') return '/';
+  const params = new URLSearchParams();
+  if (targetPage && targetPage !== 'overview') {
+    params.set('tab', targetPage);
+  }
+  if (targetAgent) {
+    params.set('agent', targetAgent);
+  }
+  if (targetLeader) {
+    params.set('leader', targetLeader);
+  }
+  const qs = params.toString();
+  return `${window.location.pathname}${qs ? '?' + qs : ''}`;
+}
+
 function Dashboard() {
   const { user } = useAuth();
   const { dataRevision } = useLiveCollection();
-  const [page, setPage] = useState('overview');
-  const [openAgent, setOpenAgent] = useState(null);
-  const [openLeader, setOpenLeader] = useState(null);
+  const [page, setPageState] = useState(() => parseLocationParams().page);
+  const [openAgent, setOpenAgentState] = useState(() => parseLocationParams().agent);
+  const [openLeader, setOpenLeaderState] = useState(() => parseLocationParams().leader);
   const [status, setStatus] = useState('loading'); // 'loading' | 'ready' | 'error'
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Synchronize browser history and back/forward navigation (popstate)
+  useEffect(() => {
+    // Ensure initial entry has state
+    const initialUrl = buildUrl(page, openAgent, openLeader);
+    window.history.replaceState({ page, agent: openAgent, leader: openLeader }, '', initialUrl);
+
+    const onPopState = (e) => {
+      const state = e.state || parseLocationParams();
+      setPageState(state.page || 'overview');
+      setOpenAgentState(state.agent || null);
+      setOpenLeaderState(state.leader || null);
+    };
+
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  // Navigate to a new tab/page with browser history tracking
+  const setPage = (newPage) => {
+    if (newPage === page && !openAgent && !openLeader) return;
+    const newUrl = buildUrl(newPage, null, null);
+    window.history.pushState({ page: newPage, agent: null, leader: null }, '', newUrl);
+    setPageState(newPage);
+    setOpenAgentState(null);
+    setOpenLeaderState(null);
+  };
+
+  // Open Agent Drawer with browser history tracking
+  const handleOpenAgent = (name) => {
+    const newUrl = buildUrl(page, name, null);
+    window.history.pushState({ page, agent: name, leader: null }, '', newUrl);
+    setOpenLeaderState(null);
+    setOpenAgentState(name);
+  };
+
+  // Open Leader Drawer with browser history tracking
+  const handleOpenLeader = (name) => {
+    const newUrl = buildUrl(page, null, name);
+    window.history.pushState({ page, agent: null, leader: name }, '', newUrl);
+    setOpenAgentState(null);
+    setOpenLeaderState(name);
+  };
+
+  // Close Agent Drawer with history preservation
+  const handleCloseAgent = () => {
+    if (window.history.state?.agent) {
+      window.history.back();
+    } else {
+      const newUrl = buildUrl(page, null, openLeader);
+      window.history.replaceState({ page, agent: null, leader: openLeader }, '', newUrl);
+      setOpenAgentState(null);
+    }
+  };
+
+  // Close Leader Drawer with history preservation
+  const handleCloseLeader = () => {
+    if (window.history.state?.leader) {
+      window.history.back();
+    } else {
+      const newUrl = buildUrl(page, openAgent, null);
+      window.history.replaceState({ page, agent: openAgent, leader: null }, '', newUrl);
+      setOpenLeaderState(null);
+    }
+  };
 
   const retryLoad = () => {
     setStatus('loading');
@@ -67,8 +161,7 @@ function Dashboard() {
     return () => clearTimeout(timer);
   }, [status]);
 
-  const handleOpenAgent = (name) => { setOpenLeader(null); setOpenAgent(name); };
-  const handleOpenLeader = (name) => { setOpenAgent(null); setOpenLeader(name); };
+
 
   if (status === 'loading') {
     return (
@@ -137,8 +230,8 @@ function Dashboard() {
           </div>
         </div>
 
-        {openAgent && <AgentDrawer name={openAgent} onClose={() => setOpenAgent(null)} />}
-        {openLeader && <LeaderDrawer name={openLeader} onClose={() => setOpenLeader(null)} onOpenAgent={handleOpenAgent} />}
+        {openAgent && <AgentDrawer name={openAgent} onClose={handleCloseAgent} />}
+        {openLeader && <LeaderDrawer name={openLeader} onClose={handleCloseLeader} onOpenAgent={handleOpenAgent} />}
       </div>
     </DomainProvider>
   );
