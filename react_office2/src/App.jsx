@@ -108,44 +108,39 @@ function Dashboard() {
   }
 
   return (
-    <div className="relative min-h-screen bg-[#f8fafc] text-slate-800 selection:bg-[#ff5e3a]/20 selection:text-[#ff3b30] animate-fade-in">
-      {/* Subtle executive ambient gradients */}
-      <div className="fixed inset-0 pointer-events-none z-0 bg-[radial-gradient(ellipse_70%_50%_at_20%_-15%,rgba(255,94,58,0.07),transparent_70%),radial-gradient(ellipse_60%_50%_at_80%_-15%,rgba(99,102,241,0.04),transparent_70%)]" />
+    <DomainProvider>
+      <div className="relative min-h-screen bg-[#f8fafc] text-slate-800 selection:bg-[#ff5e3a]/20 selection:text-[#ff3b30] animate-fade-in">
+        {/* Subtle executive ambient gradients */}
+        <div className="fixed inset-0 pointer-events-none z-0 bg-[radial-gradient(ellipse_70%_50%_at_20%_-15%,rgba(255,94,58,0.07),transparent_70%),radial-gradient(ellipse_60%_50%_at_80%_-15%,rgba(99,102,241,0.04),transparent_70%)]" />
 
-      {/* Dashboard Core Layout */}
-      <div className="relative z-10 flex min-h-screen w-full">
-        <Sidebar page={page} setPage={setPage} />
-        <div className="flex-1 min-w-0 flex flex-col">
-          <Topbar page={page} />
-          <div className="px-8 py-7 flex-1">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={`${page}-${dataRevision}`}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-              >
-                {page === 'overview' && <OverviewPage onOpenAgent={handleOpenAgent} />}
-                {page === 'states' && <StatePortfolioPage />}
-                {page === 'leaders' && <TeamLeadersPage onOpenLeader={handleOpenLeader} />}
-                {page === 'employees' && <EmployeesPage onOpenAgent={handleOpenAgent} />}
-                {/* INCENTIVES & PAYOUTS (Commented out for NPA dashboard - preserve for future NPA-specific slabs)
-                {page === 'agent-incentives' && (
-                  <AgentIncentivesPage onOpenAgent={handleOpenAgent} onNavigatePage={setPage} />
-                )}
-                {page === 'leader-incentives' && (
-                  <LeaderIncentivesPage onOpenLeader={handleOpenLeader} onNavigatePage={setPage} />
-                )} */}
-              </motion.div>
-            </AnimatePresence>
+        {/* Dashboard Core Layout */}
+        <div className="relative z-10 flex min-h-screen w-full">
+          <Sidebar page={page} setPage={setPage} />
+          <div className="flex-1 min-w-0 flex flex-col">
+            <Topbar page={page} />
+            <div className="px-8 py-7 flex-1">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={`${page}-${dataRevision}`}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                >
+                  {page === 'overview' && <OverviewPage onOpenAgent={handleOpenAgent} />}
+                  {page === 'states' && <StatePortfolioPage />}
+                  {page === 'leaders' && <TeamLeadersPage onOpenLeader={handleOpenLeader} />}
+                  {page === 'employees' && <EmployeesPage onOpenAgent={handleOpenAgent} />}
+                </motion.div>
+              </AnimatePresence>
+            </div>
           </div>
         </div>
-      </div>
 
-      {openAgent && <AgentDrawer name={openAgent} onClose={() => setOpenAgent(null)} />}
-      {openLeader && <LeaderDrawer name={openLeader} onClose={() => setOpenLeader(null)} onOpenAgent={handleOpenAgent} />}
-    </div>
+        {openAgent && <AgentDrawer name={openAgent} onClose={() => setOpenAgent(null)} />}
+        {openLeader && <LeaderDrawer name={openLeader} onClose={() => setOpenLeader(null)} onOpenAgent={handleOpenAgent} />}
+      </div>
+    </DomainProvider>
   );
 }
 
@@ -153,9 +148,7 @@ export default function App() {
   return (
     <AuthProvider>
       <LiveCollectionProvider>
-        <DomainProvider>
-          <Dashboard />
-        </DomainProvider>
+        <Dashboard />
       </LiveCollectionProvider>
     </AuthProvider>
   );

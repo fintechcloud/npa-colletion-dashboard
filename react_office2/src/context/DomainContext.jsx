@@ -1,9 +1,11 @@
 import { createContext, useContext, useState, useMemo, useCallback } from 'react';
 import { CASES, DOMAINS, LEADERS, AGENTS, META } from '../utils/data';
+import { useLiveCollection } from './LiveCollectionContext';
 
 const DomainContext = createContext(null);
 
 export function DomainProvider({ children }) {
+  const { dataRevision } = useLiveCollection();
   const [selectedDomain, setSelectedDomainState] = useState('All Domains');
 
   // Toggle or set domain: clicking active domain toggles it off back to 'All Domains'
@@ -23,7 +25,7 @@ export function DomainProvider({ children }) {
   // Compute live case counts per domain from current loaded CASES
   const domainListWithCounts = useMemo(() => {
     const counts = {};
-    const dNames = DOMAINS && DOMAINS.length > 0 ? DOMAINS : (META.domains || []);
+    const dNames = (DOMAINS && DOMAINS.length > 0) ? DOMAINS : (META?.domains || []);
 
     dNames.forEach((d) => { counts[d] = 0; });
 
@@ -36,12 +38,12 @@ export function DomainProvider({ children }) {
       }
     }
 
-    const list = [{ name: 'All Domains', count: total || CASES.length || 3452 }];
+    const list = [{ name: 'All Domains', count: total || CASES.length || 0 }];
     dNames.forEach((d) => {
-      list.push({ name: d, count: counts[d] ?? (META.domainCounts?.[d] || 0) });
+      list.push({ name: d, count: counts[d] ?? (META?.domainCounts?.[d] || 0) });
     });
     return list;
-  }, [CASES.length, DOMAINS]);
+  }, [CASES.length, DOMAINS, dataRevision]);
 
   // Leaders who actually have assigned cases in the given domain
   const getAvailableLeaders = useCallback((domain) => {
@@ -59,7 +61,7 @@ export function DomainProvider({ children }) {
       }
     }
     return LEADERS.filter((_, idx) => leaderIndices.has(idx));
-  }, [selectedDomain, DOMAINS, LEADERS, CASES.length]);
+  }, [selectedDomain, DOMAINS, LEADERS, CASES.length, dataRevision]);
 
   // Agents who actually have assigned cases in the given domain & leader
   const getAvailableAgents = useCallback((domain, leader = '') => {
@@ -74,7 +76,7 @@ export function DomainProvider({ children }) {
       agentIndices.add(r[0]);
     }
     return AGENTS.filter((_, idx) => agentIndices.has(idx));
-  }, [selectedDomain, DOMAINS, LEADERS, AGENTS, CASES.length]);
+  }, [selectedDomain, DOMAINS, LEADERS, AGENTS, CASES.length, dataRevision]);
 
   const value = useMemo(() => ({
     selectedDomain,
