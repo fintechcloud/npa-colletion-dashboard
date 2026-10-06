@@ -8,8 +8,8 @@ import {
   BarChart, Bar, Area, ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import {
-  filterRows, aggregate, STATUSES, STATUS_COLORS, YESTERDAY_STR, META,
-  fmtINR, fmtINRFull, fmtDateShort, fmtMonth, titleCase, round1,
+  filterRows, aggregate, STATUSES, STATUS_COLORS, YESTERDAY_STR, META, TODAY_STR, DOMAINS,
+  fmtINR, fmtINRFull, fmtDateShort, fmtMonth, titleCase, round1, dateToOffset,
   getAgentDomainsDetailed, DOMAIN_DOT_COLORS, offsetToStr,
 } from '../utils/data';
 import { useLiveCollection } from '../context/LiveCollectionContext';
@@ -269,6 +269,68 @@ export default function AgentDrawer({ name, onClose }) {
         ? fmtMonth(latestMonthStr)
         : 'All Months'
       : fmtMonth(selectedTrajMonth);
+
+  const agentDomainBreakdown = useMemo(() => {
+    const map = {};
+    let allCases = 0, allDue = 0, allRecvd = 0, allPrincipal = 0;
+    
+    const targetTodayStr = META.today || TODAY_STR;
+    const targetYdayStr = YESTERDAY_STR;
+    const todayOff = targetTodayStr ? dateToOffset(targetTodayStr) : -9999;
+    const ydayOff = targetYdayStr ? dateToOffset(targetYdayStr) : -9999;
+
+    let allToday = 0, allYday = 0, allSep = 0;
+
+    for (const r of rows) {
+      const dName = r[8] !== undefined && DOMAINS[r[8]] ? DOMAINS[r[8]] : 'Unknown';
+      if (!map[dName]) {
+        map[dName] = { name: dName, cases: 0, due: 0, recvd: 0, principal: 0, todayLive: 0, yesterday: 0, sep2026Recvd: 0 };
+      }
+      map[dName].cases++;
+      map[dName].due += (r[5] || 0);
+      map[dName].recvd += (r[6] || 0);
+      map[dName].principal += (r[9] || 0);
+      
+      const recOff = (r[13] !== undefined && r[13] >= 0) ? r[13] : r[4];
+      if (recOff === todayOff) map[dName].todayLive += (r[6] || 0);
+      if (recOff === ydayOff) map[dName].yesterday += (r[6] || 0);
+      
+      const recMonth = r[12];
+      if (recMonth && String(recMonth).toLowerCase().includes('sep') && String(recMonth).includes('2026')) {
+        map[dName].sep2026Recvd += (r[6] || 0);
+      }
+      
+      allCases++;
+      allDue += (r[5] || 0);
+      allRecvd += (r[6] || 0);
+      allPrincipal += (r[9] || 0);
+      if (recOff === todayOff) allToday += (r[6] || 0);
+      if (recOff === ydayOff) allYday += (r[6] || 0);
+      if (recMonth && String(recMonth).toLowerCase().includes('sep') && String(recMonth).includes('2026')) {
+        allSep += (r[6] || 0);
+      }
+    }
+    
+    const domainArray = Object.values(map).map(d => ({
+       ...d,
+       pending: d.due - d.recvd,
+       pct: d.due ? (d.recvd / d.due) * 100 : 0
+    })).sort((a, b) => b.due - a.due);
+    
+    const all = {
+       cases: allCases,
+       due: allDue,
+       recvd: allRecvd,
+       principal: allPrincipal,
+       pending: allDue - allRecvd,
+       todayLive: allToday,
+       yesterday: allYday,
+       sep2026Recvd: allSep,
+       pct: allDue ? (allRecvd / allDue) * 100 : 0
+    };
+    
+    return { domainArray, all };
+  }, [rows, META.today]);
 
   return (
     <Drawer onClose={onClose} isMaximized={isMaximized}>
@@ -779,6 +841,9 @@ export default function AgentDrawer({ name, onClose }) {
           </div>
         </div>
       </div>
+      
+      {/* Portfolio by Brand Full-Width Table */}
+      <AgentPortfolioTable data={agentDomainBreakdown} />
     </Drawer>
   );
 }
@@ -900,4 +965,197 @@ function TrajectoryTooltip({ active, payload }) {
     );
   }
   return null;
+}
+
+const bandStyles = {
+  high: { badge: 'bg-emerald-100 text-emerald-800', label: 'High' },
+  medium: { badge: 'bg-amber-100 text-amber-800', label: 'Med' },
+  low: { badge: 'bg-rose-100 text-rose-800', label: 'Low' },
+};
+
+function getBand(pct) {
+  if (pct >= 80) return 'high';
+  if (pct >= 65) return 'medium';
+  return 'low';
+}
+
+export function AgentPortfolioTable({ data }) {
+  const { domainArray, all } = data;
+  
+  return (
+    <div className="bg-white border border-slate-200/90 shadow-sm rounded-2xl overflow-hidden flex flex-col mb-6 mt-2">
+      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div className="flex items-center gap-3">
+          <h3 className="text-[15px] font-bold text-slate-900 font-display tracking-tight">Portfolio by Brand</h3>
+          <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-200/70 text-slate-600">
+            {domainArray.length} brands
+          </span>
+        </div>
+      </div>
+      
+      <div className="overflow-x-auto scroll-theme">
+        <table className="w-full text-left border-collapse min-w-[900px]">
+          <thead className="bg-slate-50 border-b border-slate-200">
+            <tr>
+              <th className="py-2.5 px-3 text-[10.5px] font-bold uppercase tracking-wider text-slate-400 font-display">
+                Domain / Brand
+              </th>
+              <th className="py-2.5 px-3 text-[10.5px] font-bold uppercase tracking-wider text-slate-400 font-display text-right">
+                Cases
+              </th>
+              <th className="py-2.5 px-3 text-[10.5px] font-bold uppercase tracking-wider text-slate-400 font-display text-right">
+                Total Due
+              </th>
+              <th className="py-2.5 px-3 text-[10.5px] font-bold uppercase tracking-wider text-slate-400 font-display text-right">
+                Remaining
+              </th>
+              <th className="py-2.5 px-3 text-[10.5px] font-bold uppercase tracking-wider text-slate-400 font-display text-right">
+                Today Live
+              </th>
+              <th className="py-2.5 px-3 text-[10.5px] font-bold uppercase tracking-wider text-slate-400 font-display text-right">
+                Yesterday
+              </th>
+              <th className="py-2.5 px-3 text-[10.5px] font-bold uppercase tracking-wider text-slate-400 font-display text-right">
+                Last Mo (Sep)
+              </th>
+              <th className="py-2.5 px-3 text-[10.5px] font-bold uppercase tracking-wider text-slate-400 font-display text-right">
+                Collected
+              </th>
+              <th className="py-2.5 px-3 text-[10.5px] font-bold uppercase tracking-wider text-slate-400 font-display text-right">
+                Disbursed
+              </th>
+              <th className="py-2.5 px-3 text-[10.5px] font-bold uppercase tracking-wider text-slate-400 font-display text-right pr-4">
+                Recovery %
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 text-[12px]">
+            {/* All Domains Aggregated Row */}
+            <tr className="bg-slate-50/80 hover:bg-slate-100/50 transition-colors border-b-2 border-b-slate-200">
+              <td className="py-2.5 px-3 font-medium text-slate-900 whitespace-nowrap">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-slate-400 shrink-0" />
+                  <span className="text-[12.5px] font-bold">All Domains</span>
+                  <span className="text-[9.5px] font-medium px-1.5 py-0.2 rounded bg-slate-200 text-slate-700">All</span>
+                </div>
+              </td>
+              <td className="py-2.5 px-3 text-right font-mono text-slate-600 tabular-nums">
+                {all.cases.toLocaleString('en-IN')}
+              </td>
+              <td className="py-2.5 px-3 text-right font-mono font-semibold text-slate-900 tabular-nums">
+                {fmtINR(all.due)}
+              </td>
+              <td className="py-2.5 px-3 text-right font-mono text-slate-500 tabular-nums">
+                {fmtINR(all.pending)}
+              </td>
+              <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-600 tabular-nums">
+                {all.todayLive > 0 ? (
+                  <span className="inline-flex items-center gap-1 justify-end">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    {fmtINR(all.todayLive)}
+                  </span>
+                ) : '₹0'}
+              </td>
+              <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-800 tabular-nums">
+                {fmtINR(all.yesterday)}
+              </td>
+              <td className="py-2.5 px-3 text-right font-mono text-slate-700 font-medium tabular-nums">
+                {fmtINR(all.sep2026Recvd)}
+              </td>
+              <td className="py-2.5 px-3 text-right font-mono font-medium text-slate-800 tabular-nums">
+                {fmtINR(all.recvd)}
+              </td>
+              <td className="py-2.5 px-3 text-right font-mono text-slate-500 tabular-nums">
+                {fmtINR(all.principal)}
+              </td>
+              <td className="py-2.5 px-3 text-right whitespace-nowrap pr-4">
+                <div className="inline-flex items-center gap-1.5 justify-end">
+                  <span className="font-mono font-semibold text-slate-800 tabular-nums">
+                    {all.pct.toFixed(2)}%
+                  </span>
+                  <span className="text-[10px] font-medium px-1.5 py-0.2 rounded bg-slate-200/70 text-slate-600">
+                    Total
+                  </span>
+                </div>
+              </td>
+            </tr>
+
+            {/* Individual Domain Rows */}
+            {domainArray.length === 0 ? (
+              <tr>
+                <td colSpan={10} className="text-center py-8 text-slate-400 text-xs">
+                  No domains found
+                </td>
+              </tr>
+            ) : (
+              domainArray.map((d) => {
+                const dotColor = DOMAIN_DOT_COLORS[d.name] || 'bg-slate-400';
+                const style = bandStyles[getBand(d.pct)] || bandStyles.low;
+
+                return (
+                  <tr key={d.name} className="hover:bg-slate-50/70 transition-colors group">
+                    <td className="py-2.5 px-3 font-medium text-slate-800 group-hover:text-slate-900 transition-colors whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${dotColor.replace('bg-', 'bg-')}`} />
+                        <span className="text-[12.5px] font-medium">{d.name}</span>
+                      </div>
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-mono text-slate-500 tabular-nums">
+                      {d.cases.toLocaleString('en-IN')}
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-mono font-semibold text-slate-900 tabular-nums">
+                      {fmtINR(d.due)}
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-mono text-slate-500 tabular-nums">
+                      {fmtINR(d.pending)}
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-mono tabular-nums">
+                      {d.todayLive > 0 ? (
+                        <span className="text-emerald-700 font-bold inline-flex items-center gap-1 justify-end">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          {fmtINR(d.todayLive)}
+                        </span>
+                      ) : (
+                        <span className="text-slate-300 font-normal">—</span>
+                      )}
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-mono tabular-nums">
+                      {d.yesterday > 0 ? (
+                        <span className="text-slate-800 font-semibold">{fmtINR(d.yesterday)}</span>
+                      ) : (
+                        <span className="text-slate-300 font-normal">—</span>
+                      )}
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-mono tabular-nums">
+                      {d.sep2026Recvd > 0 ? (
+                        <span className="text-slate-700 font-medium">{fmtINR(d.sep2026Recvd)}</span>
+                      ) : (
+                        <span className="text-slate-300 font-normal">—</span>
+                      )}
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-mono font-medium text-slate-800 tabular-nums">
+                      {fmtINR(d.recvd)}
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-mono text-slate-400 tabular-nums">
+                      {fmtINR(d.principal)}
+                    </td>
+                    <td className="py-2.5 px-3 text-right whitespace-nowrap pr-4">
+                      <div className="inline-flex items-center gap-1.5 justify-end">
+                        <span className="font-mono font-medium text-slate-800 tabular-nums">
+                          {d.pct.toFixed(2)}%
+                        </span>
+                        <span className={`text-[9.5px] font-medium px-1.5 py-0.2 rounded ${style.badge}`}>
+                          {style.label}
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 }
