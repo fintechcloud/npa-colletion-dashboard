@@ -471,3 +471,47 @@ export default function OverviewPage({ onOpenAgent }) {
     </div>
   );
 }
+
+function Stat({ label, value, accent }) {
+  return (
+    <div className="flex items-center gap-1.5 text-[11.5px] whitespace-nowrap">
+      <span className="text-slate-400 font-normal">{label}:</span>
+      <span className={`font-mono font-semibold ${accent ? 'text-[#ff4d30]' : 'text-slate-700'}`}>{value}</span>
+    </div>
+  );
+}
+
+function Panel({ title, sub, right, className = '', children }) {
+  return (
+    <div className={`bg-white hover:bg-white/95 backdrop-blur-xl border border-slate-200/90 hover:border-slate-300 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all ${className}`}>
+      <div className="flex items-center justify-between mb-5 gap-3 flex-wrap">
+        <div>
+          <div className="text-[15px] font-bold text-slate-900 font-display tracking-tight">{title}</div>
+          {sub && <div className="text-[11.5px] font-medium text-slate-500 mt-0.5">{sub}</div>}
+        </div>
+        {right}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function CustomTooltip({ active, payload, label, isCurrency = true }) {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xl backdrop-blur-md text-slate-800 text-[12px]">
+        {label && <div className="font-bold text-slate-500 mb-1.5 font-display">{label}</div>}
+        {payload.map((item, index) => (
+          <div key={index} className="flex items-center gap-2 py-0.5">
+            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color || item.fill || '#ff3b30' }} />
+            <span className="text-slate-500 font-medium">{item.name}:</span>
+            <span className="font-mono font-bold text-slate-900">
+              {isCurrency && typeof item.value === 'number' ? fmtINRFull(item.value) : item.value}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return null;
+}
