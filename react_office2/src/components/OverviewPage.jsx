@@ -155,58 +155,57 @@ export default function OverviewPage({ onOpenAgent }) {
 
   return (
     <div className="space-y-6">
-      {/* 1. Sleek Prominent Multi-Domain Switcher Pill Bar */}
-      <DomainSwitcher />
-
-      {/* 2. Top Filter Bar */}
-      <FilterBar filters={filters} setFilters={setFilters} />
-
-      {/* 3. Sleek Minimalist Ticker Bar */}
-      <div className="relative bg-white/85 backdrop-blur-xl border border-slate-200/90 rounded-xl py-2 mb-5 text-slate-800 overflow-hidden shadow-xs">
-        <div className="flex items-center gap-8 whitespace-nowrap animate-marquee w-max">
-          {[0, 1].map((copy) => (
-            <div key={copy} className="flex items-center gap-5 pl-4">
-              <button
-                type="button"
-                onClick={() => setShowSyncModal(true)}
-                className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-200 text-emerald-800 font-mono font-medium text-[11.5px] cursor-pointer transition-all shadow-xs"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span>Live Today: {fmtINR(totalLiveToday)}</span>
-              </button>
-              <span className="text-slate-300">•</span>
-              <div className="flex items-center gap-1.5 text-[11.5px]">
-                <span className="text-slate-400 font-normal">Active Domain:</span>
-                <span className="text-[#ff4d30] font-semibold">{selectedDomains.size > 0 ? Array.from(selectedDomains).join(", ") : "All Domains"}</span>
-                <span className="text-slate-500 font-mono text-[10.5px]">({agg.cases.toLocaleString('en-IN')} cases)</span>
-              </div>
-              <span className="text-slate-300">•</span>
-              <div className="flex items-center gap-1.5 text-[11.5px]">
-                <span className="text-slate-400 font-normal">Recovery Rate:</span>
-                <span className="text-emerald-700 font-mono font-semibold">{agg.pct.toFixed(2)}%</span>
-              </div>
-              <span className="text-slate-300">•</span>
-              <Stat label="Total Due" value={fmtINR(agg.due)} />
-              <span className="text-slate-300">•</span>
-              <Stat label="Recovered" value={fmtINR(agg.recvd)} accent />
-              <span className="text-slate-300">•</span>
-              <Stat label="Principal Disbursed" value={fmtINR(agg.principal)} />
-              <span className="text-slate-300">•</span>
-              <Stat label="Sep 2026 Recov" value={fmtINR(agg.sep2026Recvd)} />
-              <span className="text-slate-300">•</span>
-              <Stat label="Active Agents" value={agg.agentCount} />
-              <span className="text-slate-300">•</span>
-              <Stat label="Active Leaders" value={agg.leaderCount} />
-            </div>
-          ))}
+      {/* 1. Consolidated Filter Strip */}
+      <div className="flex flex-col xl:flex-row xl:items-center gap-4 bg-white/80 backdrop-blur-xl border border-slate-200/90 rounded-2xl p-2 sm:p-3 shadow-xs">
+        <DomainSwitcher />
+        <div className="hidden xl:block w-[1px] h-8 bg-slate-200" />
+        <div className="flex-1 overflow-x-auto">
+          <FilterBar filters={filters} setFilters={setFilters} />
         </div>
       </div>
 
-      {/* 4. Top 8 KPI Cards: 2 rows of 4 cards (Live & Daily Recovery, Scope & Performance) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+      {/* 2. Hero KPI Cards (Primary Row) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <KpiCard
           index={0}
-          label="Today Live Collection"
+          label="Total Repayment Due"
+          raw={agg.due}
+          format={fmtINR}
+          sub={`Remaining: ${fmtINR(remaining)}`}
+          icon={AlertCircle}
+          tone="warn"
+          className="md:py-7"
+          valueClassName="text-[28px] sm:text-[32px] xl:text-[36px]"
+        />
+        <KpiCard
+          index={1}
+          label="Total NPA Recovered"
+          raw={agg.recvd}
+          format={fmtINR}
+          sub="All-time portfolio recovery"
+          icon={Wallet}
+          tone="brand"
+          className="md:py-7"
+          valueClassName="text-[28px] sm:text-[32px] xl:text-[36px]"
+        />
+        <KpiCard
+          index={2}
+          label="Recovery Rate"
+          raw={agg.pct}
+          format={(v) => `${v.toFixed(2)}%`}
+          sub="Overall portfolio recovery percentage"
+          icon={TrendingUp}
+          tone="live"
+          className="md:py-7"
+          valueClassName="text-[28px] sm:text-[32px] xl:text-[36px]"
+        />
+      </div>
+
+      {/* 3. Secondary KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
+        <KpiCard
+          index={3}
+          label="Today's Live Collection"
           raw={todayLiveAmount}
           format={fmtINR}
           sub={`${todayLiveCasesCount} cases collected`}
@@ -215,8 +214,8 @@ export default function OverviewPage({ onOpenAgent }) {
           tone="live"
         />
         <KpiCard
-          index={1}
-          label="Yesterday Total Collection"
+          index={4}
+          label="Yesterday's Total Collection"
           raw={yesterdayAmount}
           format={fmtINR}
           sub={`${yesterdayCasesCount} cases collected`}
@@ -225,25 +224,7 @@ export default function OverviewPage({ onOpenAgent }) {
           tone="brand"
         />
         <KpiCard
-          index={2}
-          label="Total NPA Recovered"
-          raw={agg.recvd}
-          format={fmtINR}
-          sub="All-time portfolio recovery"
-          icon={Wallet}
-          tone="brand"
-        />
-        <KpiCard
-          index={3}
-          label="Total Repayment Due"
-          raw={agg.due}
-          format={fmtINR}
-          sub={`Remaining: ${fmtINR(remaining)}`}
-          icon={AlertCircle}
-          tone="warn"
-        />
-        <KpiCard
-          index={4}
+          index={5}
           label="Total Disbursed Principal"
           raw={agg.principal}
           format={fmtINR}
@@ -252,7 +233,7 @@ export default function OverviewPage({ onOpenAgent }) {
           tone="neutral"
         />
         <KpiCard
-          index={5}
+          index={6}
           label="Active NPA Cases"
           raw={agg.cases}
           format={(v) => Math.round(v).toLocaleString('en-IN')}
@@ -260,32 +241,13 @@ export default function OverviewPage({ onOpenAgent }) {
           icon={Users}
           tone="neutral"
         />
-        <KpiCard
-          index={6}
-          label="Settled vs Part-Payment"
-          raw={agg.modeCount?.['PART-PAYMENT'] || 0}
-          format={() => `${(agg.modeCount?.['PART-PAYMENT'] || 0).toLocaleString('en-IN')} Part · ${(agg.modeCount?.['SETTLED'] || 0).toLocaleString('en-IN')} Settled`}
-          sub={`${(agg.modeCount?.['CLOSED'] || 0).toLocaleString('en-IN')} Closed · ${(agg.modeCount?.['SETTLED ON DISBURSAL'] || 0).toLocaleString('en-IN')} Disbursal`}
-          icon={CheckCircle2}
-          tone="live"
-          valueClassName="text-[17px] sm:text-[18px] xl:text-[19px]"
-        />
-        <KpiCard
-          index={7}
-          label="Latest Month Recovery (Sep 2026)"
-          raw={agg.sep2026Recvd}
-          format={fmtINR}
-          sub="September 2026 reconciled collections"
-          icon={TrendingUp}
-          tone="brand"
-        />
       </div>
 
-      {/* 5. Scrollable Domain Portfolio Table (All Domains Data Breakdown) */}
-      <DomainPortfolioTable />
-
-      {/* 6. Centerpiece Collection Trend & Trajectory */}
-      <CollectionTrendChart agg={agg} selectedDomains={selectedDomains.size > 0 ? Array.from(selectedDomains).join(", ") : "All Domains"} />
+      {/* 4. Split-Screen: Daily Trajectory & Brand Portfolio */}
+      <div className="grid grid-cols-1 xl:grid-cols-[1.5fr_1fr] gap-6 items-start">
+        <CollectionTrendChart agg={agg} selectedDomains={selectedDomains.size > 0 ? Array.from(selectedDomains).join(", ") : "All Domains"} />
+        <DomainPortfolioTable compact />
+      </div>
 
       {/* 6. Two Column Grid: Month-wise & Closure Mode Breakdown */}
       <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-6">

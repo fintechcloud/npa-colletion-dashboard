@@ -34,7 +34,7 @@ const bandStyles = {
   },
 };
 
-export default function DomainPortfolioTable() {
+export default function DomainPortfolioTable({ compact = false }) {
   const { selectedDomains, toggleDomain, clearDomain, isDomainActive } = useDomain();
   const { totalLiveToday, totalYesterday, todayDate, yesterdayDate } = useLiveCollection();
 
@@ -169,7 +169,13 @@ export default function DomainPortfolioTable() {
     return list;
   }, [rows, search, sortKey, sortDir]);
 
-  const cols = [
+  const cols = compact ? [
+    { key: 'name', label: 'Domain', align: 'text-left' },
+    { key: 'due', label: 'Due', align: 'text-right' },
+    { key: 'todayLive', label: 'Live', align: 'text-right' },
+    { key: 'recvd', label: 'Collected', align: 'text-right' },
+    { key: 'pct', label: '%', align: 'text-right' },
+  ] : [
     { key: 'name', label: 'Domain / Brand', align: 'text-left' },
     { key: 'cases', label: 'Cases', align: 'text-right' },
     { key: 'due', label: 'Total Due', align: 'text-right' },
@@ -326,9 +332,11 @@ export default function DomainPortfolioTable() {
               </td>
 
               {/* Cases */}
+              {!compact && (
               <td className="py-2.5 px-3 text-right font-mono text-slate-600 tabular-nums">
                 {allDomainsRow.cases.toLocaleString('en-IN')}
               </td>
+              )}
 
               {/* Total Due */}
               <td className="py-2.5 px-3 text-right font-mono font-semibold text-slate-900 tabular-nums">
@@ -336,9 +344,11 @@ export default function DomainPortfolioTable() {
               </td>
 
               {/* Remaining */}
+              {!compact && (
               <td className="py-2.5 px-3 text-right font-mono text-slate-500 tabular-nums">
                 {formatMoney(allDomainsRow.pending)}
               </td>
+              )}
 
               {/* Today Live */}
               <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-600 tabular-nums">
@@ -351,14 +361,18 @@ export default function DomainPortfolioTable() {
               </td>
 
               {/* Yesterday */}
+              {!compact && (
               <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-800 tabular-nums">
                 {formatMoney(allDomainsRow.yesterday)}
               </td>
+              )}
 
               {/* Last Mo (Sep 2026) */}
+              {!compact && (
               <td className="py-2.5 px-3 text-right font-mono text-slate-700 font-medium tabular-nums">
                 {formatMoney(allDomainsRow.sep2026Recvd)}
               </td>
+              )}
 
               {/* Collected */}
               <td className="py-2.5 px-3 text-right font-mono font-medium text-slate-800 tabular-nums">
@@ -366,9 +380,11 @@ export default function DomainPortfolioTable() {
               </td>
 
               {/* Disbursed */}
+              {!compact && (
               <td className="py-2.5 px-3 text-right font-mono text-slate-500 tabular-nums">
                 {formatMoney(allDomainsRow.principal)}
               </td>
+              )}
 
               {/* Recovery % */}
               <td className="py-2.5 px-3 text-right whitespace-nowrap">
@@ -386,7 +402,7 @@ export default function DomainPortfolioTable() {
             {/* Individual Domain Rows */}
             {sortedRows.length === 0 ? (
               <tr>
-                <td colSpan={10} className="text-center py-8 text-slate-400 text-xs">
+                <td colSpan={compact ? 5 : 10} className="text-center py-8 text-slate-400 text-xs">
                   No domains found matching "{search}"
                 </td>
               </tr>
@@ -420,9 +436,11 @@ export default function DomainPortfolioTable() {
                     </td>
 
                     {/* Cases */}
+                    {!compact && (
                     <td className="py-2.5 px-3 text-right font-mono text-slate-500 tabular-nums">
                       {d.cases.toLocaleString('en-IN')}
                     </td>
+                    )}
 
                     {/* Money to Collect (Total Due Scope) */}
                     <td className="py-2.5 px-3 text-right font-mono font-semibold text-slate-900 tabular-nums">
@@ -447,6 +465,7 @@ export default function DomainPortfolioTable() {
                     </td>
 
                     {/* Yesterday */}
+                    {!compact && (
                     <td className="py-2.5 px-3 text-right font-mono tabular-nums">
                       {d.yesterday > 0 ? (
                         <span className="text-slate-800 font-semibold">{formatMoney(d.yesterday)}</span>
@@ -454,6 +473,7 @@ export default function DomainPortfolioTable() {
                         <span className="text-slate-300 font-normal">—</span>
                       )}
                     </td>
+                    )}
 
                     {/* Last Month (Sep 2026) Collection */}
                     <td className="py-2.5 px-3 text-right font-mono tabular-nums">
